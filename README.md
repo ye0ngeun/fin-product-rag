@@ -68,6 +68,38 @@ python -m src.vectorstore.index_meta --types credit   # 한 유형만
 
 출력에서 유형별 로드 건수, 색인 전후 청크 수, 샘플 텍스트를 확인합니다. 두 번 실행해도 "색인 후" 건수가 그대로면 정상입니다. Streamlit 화면 왼쪽에 현재 색인 건수가 나옵니다.
 
+## 외부 문서 수집·색인 (F2003~F2005)
+
+외부 문서는 `loan_docs` 컬렉션에 들어갑니다. 출처 종류는 메타데이터 `doc_type`(wiki, glossary_hf, glossary_epost, glossary_epost_chatbot, glossary_bok)으로 구분합니다. 청크 ID는 `{product_id}:{doc_id}:{순번}` 이고, 위키·용어사전은 모든 상품이 같이 쓰는 문서라 `product_id` 가 `common` 입니다. 청크 크기·중복은 `config/settings.yaml` 의 `chunking` 에서 바꿉니다.
+
+### 1) 용어사전·PDF
+
+받아 둔 파일을 이름 그대로 `data/raw/docs/` 에 넣습니다. 어떤 파일을 읽을지는 `settings.yaml` 의 `docs` 에 파일 이름 패턴과 열 이름으로 적혀 있습니다.
+
+| 파일 | 패턴 | 단위 |
+|------|------|------|
+| 한국주택금융공사_단어사전_*.csv | `*주택금융공사*단어사전*.csv` | 용어 1개 = 문서 1개 |
+| 우체국금융개발원_우체국예금보험 금융용어사전_*.csv (CP949) | `*우체국예금보험*금융용어사전*.csv` | 용어 1개 = 문서 1개 |
+| 우체국금융개발원_고객센터 챗봇 금융용어 사전_*.csv (CP949) | `*챗봇*금융용어*.csv` | 용어 1개 = 문서 1개 |
+| 한국은행 경제금융용어 800선 PDF | `*800*.pdf` | 1쪽 = 문서 1개 (파일명·쪽 번호를 출처로 저장) |
+
+```bash
+python -m src.vectorstore.index_docs --glossary --dry-run   # 파일별 건수, 청크 수, 샘플 확인
+python -m src.vectorstore.index_docs --glossary
+```
+
+### 2) 위키백과 (검색어 추출 → 검색 → 후보 선별 → 수집)
+
+`.env` 의 `WIKI_USER_AGENT` 에 연락처를 넣어야 합니다(NF2006). 한 상품과 질문으로 실행하면 프롬프트1이 뽑은 검색어, 검색어별 후보와 프롬프트2 선별 결과, 새로 받은 문서를 출력합니다.
+
+- 상품의 대출 유형(예: 주택담보대출)은 검색어에 항상 들어가고, 같은 제목의 문서는 선별과 상관없이 남깁니다.
+- 이미 수집한 검색어는 `data/processed/wiki_cache.json` 을 보고 다시 검색하지 않습니다(NF2002). 같은 명령을 두 번 돌리면 두 번째는 "이미 수집함 (캐시)"으로 나옵니다.
+
+```bash
+python -m src.vectorstore.index_docs --product mortgage:0010001:1054 --question "중도상환수수료는 어떻게 계산돼?"
+python -m src.vectorstore.index_docs --seed 2     # 유형마다 상품 2개씩 기본 질문으로 미리 수집
+```
+
 ## 아파트 실거래가 수집 (《불빛 하나》 화면용)
 
 국토교통부 아파트 매매 실거래가 API로 서울 구 4곳(강남·마포·노원·관악) × 지난 6개월을 받습니다. RAG 색인 대상은 아니고 화면의 거래 사례(집 불빛)에 씁니다. 공공데이터포털에서 받은 일반 인증키를 `.env` 의 `MOLIT_API_KEY` 에 넣습니다(Decoding 키 권장, Encoding 키도 됩니다). 구와 기간은 `config/settings.yaml` 의 `molit` 에서 바꿉니다.
