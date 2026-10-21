@@ -1,7 +1,8 @@
-"""금감원 금융상품한눈에 Open API에서 정기예금·적금 상품을 수집한다.
+"""금감원 금융상품한눈에 Open API에서 대출(주택담보·전세자금·개인신용) 상품을 수집한다.
 
 실행: python -m src.data_prep.fss_collector
-결과: data/raw/fss/{deposit,saving}.json (권역·전 페이지 합본) 과 상품 수 출력
+수집할 상품 유형과 권역은 config/settings.yaml 의 fss.product_types, fss.fin_groups 에서 정한다.
+결과: data/raw/fss/{유형}.json (권역·전 페이지 합본) 과 상품 수 출력
 """
 
 import json
@@ -13,10 +14,19 @@ import requests
 from src.config import get_env, get_settings
 
 PRODUCT_TYPES = {
+    "mortgage": "mortgageLoanProductsSearch.json",  # 주택담보대출
+    "rent_house": "rentHouseLoanProductsSearch.json",  # 전세자금대출
+    "credit": "creditLoanProductsSearch.json",  # 개인신용대출
     "deposit": "depositProductsSearch.json",  # 정기예금
     "saving": "savingProductsSearch.json",  # 적금
 }
-GROUP_NAMES = {"020000": "은행", "030300": "저축은행"}
+GROUP_NAMES = {
+    "020000": "은행",
+    "030200": "여신전문",
+    "030300": "저축은행",
+    "050000": "보험",
+    "060000": "금융투자",
+}
 
 
 def fetch_page(session: requests.Session, url: str, params: dict, fss_cfg: dict) -> dict:
@@ -70,7 +80,8 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     total = 0
-    for product_type in PRODUCT_TYPES:
+    for product_type in fss_cfg["product_types"]:
+        print(f"[{product_type}] 수집 중...", flush=True)
         data = collect(product_type, api_key, fss_cfg)
         path = out_dir / f"{product_type}.json"
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

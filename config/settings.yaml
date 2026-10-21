@@ -7,8 +7,12 @@ paths:
 
 fss:
   base_url: https://finlife.fss.or.kr/finlifeapi
-  # 권역 코드: 020000 은행, 030300 저축은행
-  fin_groups: ["020000", "030300"]
+  # 수집할 상품 유형. 예적금도 받으려면 deposit, saving 을 추가한다.
+  #   mortgage 주택담보대출, rent_house 전세자금대출, credit 개인신용대출
+  #   deposit 정기예금, saving 적금
+  product_types: ["mortgage", "rent_house", "credit"]
+  # 권역 코드: 020000 은행, 030200 여신전문, 030300 저축은행, 050000 보험, 060000 금융투자
+  fin_groups: ["020000", "030200", "030300", "050000"]
   request_interval_sec: 0.5
   max_retries: 3
   timeout_sec: 10
@@ -24,8 +28,8 @@ llm:
   temperature: 0
 
 vectorstore:
-  meta_collection: product_meta
-  doc_collection: product_docs
+  meta_collection: loan_meta
+  doc_collection: loan_docs
 
 chunking:
   chunk_size: 1000
