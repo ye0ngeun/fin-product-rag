@@ -103,6 +103,20 @@ python -m src.vectorstore.index_docs --product mortgage:0010001:1054 --question 
 python -m src.vectorstore.index_docs --seed 2     # 유형마다 상품 2개씩 기본 질문으로 미리 수집
 ```
 
+## 근거 검색·답변·근거 표시 (F2006~F2008)
+
+LangGraph 그래프는 `retrieve` → `generate` 두 노드입니다 (`src/rag/graph.py`).
+
+- retrieve: 상품을 고르면 그 상품의 `loan_meta` 청크를 근거 1번으로 넣고, `loan_docs` 에서 공통 문서와 그 상품 문서 중 `retrieval.top_k` 개를 찾습니다. 상품을 고르지 않으면 `loan_meta` 에서 `meta_top_k` 개를 찾습니다. 같은 청크나 같은 내용은 한 번만 남기고 `[근거 n]` 번호를 붙입니다. 검색 방식(similarity/mmr)은 `retrieval.search_type`.
+- generate: 프롬프트3은 근거만 써서 답하고 문장마다 `[근거 n]` 을 붙입니다. 근거로 답할 수 없으면 "제공된 문서에서 확인되지 않습니다."라고 답합니다.
+- 출처: 답변에 실제로 인용된 번호의 근거만 제목과 원문 위치(위키 URL, 사전 데이터 페이지, PDF 파일·쪽, 금감원 상품정보와 수집일)로 보여 줍니다. 인용이 없으면 "답변에 인용된 근거가 없습니다."를 표시합니다.
+
+```bash
+python -m src.rag.ask "중도상환수수료는 어떻게 계산돼?" --product mortgage:0010001:1054
+python -m src.rag.ask "LTV가 뭐야?" --show-evidence
+python -m src.rag.ask "오늘 서울 날씨 어때?" --product mortgage:0010001:1054   # 근거 없음 확인
+```
+
 ## 아파트 실거래가 수집 (《불빛 하나》 화면용)
 
 국토교통부 아파트 매매 실거래가 API로 서울 구 4곳(강남·마포·노원·관악) × 지난 6개월을 받습니다. RAG 색인 대상은 아니고 화면의 거래 사례(집 불빛)에 씁니다. 공공데이터포털에서 받은 일반 인증키를 `.env` 의 `MOLIT_API_KEY` 에 넣습니다(Decoding 키 권장, Encoding 키도 됩니다). 구와 기간은 `config/settings.yaml` 의 `molit` 에서 바꿉니다.
