@@ -1,0 +1,14 @@
+{
+  "product_type": "credit",
+  "collected_at": "2026-10-21T05:00:00+00:00",
+  "source": "금융감독원 금융상품한눈에 Open API",
+  "baseList": [
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-C1", "crdt_prdt_type": "1", "kor_co_nm": "우리은행", "fin_prdt_nm": "테스트직장인신용대출", "join_way": "인터넷,스마트폰", "crdt_prdt_type_nm": "일반신용대출", "cb_name": "KCB", "dcls_strt_day": "20261020", "dcls_end_day": null, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-C1", "crdt_prdt_type": "2", "kor_co_nm": "우리은행", "fin_prdt_nm": "테스트직장인신용대출", "join_way": "인터넷,스마트폰", "crdt_prdt_type_nm": "마이너스한도대출", "cb_name": "KCB", "dcls_strt_day": "20261020", "dcls_end_day": null, "top_fin_grp_no": "020000"}
+  ],
+  "optionList": [
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-C1", "crdt_prdt_type": "1", "crdt_lend_rate_type": "A", "crdt_lend_rate_type_nm": "대출금리", "crdt_grad_1": 4.5, "crdt_grad_4": 5.1, "crdt_grad_5": 6.3, "crdt_grad_6": 8.2, "crdt_grad_10": 10.4, "crdt_grad_11": null, "crdt_grad_12": null, "crdt_grad_13": null, "crdt_grad_avg": 5.4, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-C1", "crdt_prdt_type": "1", "crdt_lend_rate_type": "B", "crdt_lend_rate_type_nm": "기준금리", "crdt_grad_1": 3.2, "crdt_grad_4": 3.2, "crdt_grad_5": 3.2, "crdt_grad_6": 3.2, "crdt_grad_10": 3.2, "crdt_grad_avg": 3.2, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-C1", "crdt_prdt_type": "2", "crdt_lend_rate_type": "A", "crdt_lend_rate_type_nm": "대출금리", "crdt_grad_1": 5.0, "crdt_grad_4": 5.6, "crdt_grad_avg": 5.3, "top_fin_grp_no": "020000"}
+  ]
+}

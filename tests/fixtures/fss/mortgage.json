@@ -1,0 +1,53 @@
+{
+  "product_type": "mortgage",
+  "collected_at": "2026-10-21T05:00:00+00:00",
+  "source": "금융감독원 금융상품한눈에 Open API",
+  "baseList": [
+    {
+      "dcls_month": "202610",
+      "fin_co_no": "0010001",
+      "fin_prdt_cd": "1054",
+      "kor_co_nm": "우리은행",
+      "fin_prdt_nm": "우리아파트론",
+      "join_way": "영업점,모집인",
+      "loan_inci_expn": "- 인지세 : 해당세액의 50%(대출금액 5천만원 이하시 없음)\n- 국민주택채권 매입 : 대출금액 × 120% × 1% × 채권할인율",
+      "erly_rpay_fee": "- 고정금리 : 중도상환대출금×0.71%×잔존기간÷대출기간\n- 변동금리 : 중도상환대출금×0.95%×잔존기간÷대출기간",
+      "dly_rate": "- 적용금리+ 3%\n(가계대출 최고연체이자율 : 12%)",
+      "loan_lmt": "LTV 70%",
+      "dcls_strt_day": "20261020",
+      "dcls_end_day": "20271019",
+      "fin_co_subm_day": "202610161437",
+      "top_fin_grp_no": "020000"
+    },
+    {
+      "dcls_month": "202610",
+      "fin_co_no": "0010001",
+      "fin_prdt_cd": "1054",
+      "kor_co_nm": "우리은행",
+      "fin_prdt_nm": "우리아파트론",
+      "join_way": "영업점,모집인",
+      "loan_lmt": "LTV 70%",
+      "dcls_strt_day": "20261020",
+      "dcls_end_day": "20271019",
+      "top_fin_grp_no": "020000"
+    },
+    {
+      "dcls_month": "202610",
+      "fin_co_no": "0013175",
+      "fin_prdt_cd": "TEST-M2",
+      "kor_co_nm": "테스트저축은행",
+      "fin_prdt_nm": "옵션없는주담대",
+      "join_way": "인터넷",
+      "loan_lmt": "LTV 60%",
+      "dcls_strt_day": "20261001",
+      "dcls_end_day": null,
+      "top_fin_grp_no": "030300"
+    }
+  ],
+  "optionList": [
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "1054", "mrtg_type": "A", "mrtg_type_nm": "아파트", "rpay_type": "D", "rpay_type_nm": "분할상환방식", "lend_rate_type": "F", "lend_rate_type_nm": "고정금리", "lend_rate_min": 3.52, "lend_rate_max": 4.82, "lend_rate_avg": 4.01, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "1054", "mrtg_type": "A", "mrtg_type_nm": "아파트", "rpay_type": "D", "rpay_type_nm": "분할상환방식", "lend_rate_type": "C", "lend_rate_type_nm": "변동금리", "lend_rate_min": 3.95, "lend_rate_max": 5.25, "lend_rate_avg": null, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "1054", "mrtg_type": "A", "mrtg_type_nm": "아파트", "rpay_type": "D", "rpay_type_nm": "분할상환방식", "lend_rate_type": "C", "lend_rate_type_nm": "변동금리", "lend_rate_min": 3.95, "lend_rate_max": 5.25, "lend_rate_avg": null, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "9999999", "fin_prdt_cd": "ORPHAN", "mrtg_type": "A", "mrtg_type_nm": "아파트", "rpay_type": "S", "rpay_type_nm": "만기일시상환방식", "lend_rate_type": "F", "lend_rate_type_nm": "고정금리", "lend_rate_min": 5.0, "lend_rate_max": 6.0, "lend_rate_avg": 5.5, "top_fin_grp_no": "020000"}
+  ]
+}

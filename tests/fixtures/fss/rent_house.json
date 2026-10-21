@@ -1,0 +1,12 @@
+{
+  "product_type": "rent_house",
+  "collected_at": "2026-10-21T05:00:00+00:00",
+  "source": "금융감독원 금융상품한눈에 Open API",
+  "baseList": [
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-R1", "kor_co_nm": "우리은행", "fin_prdt_nm": "테스트전세론", "join_way": "영업점,인터넷,스마트폰", "loan_inci_expn": "- 인지세 : 해당세액의 50%", "erly_rpay_fee": "- 중도상환대출금×0.6%×잔존기간÷대출기간", "dly_rate": "- 적용금리+ 3%", "loan_lmt": "- 임차보증금의 80% 이내\n- 최대 2억 2천만원", "dcls_strt_day": "20261020", "dcls_end_day": "20271019", "top_fin_grp_no": "020000"}
+  ],
+  "optionList": [
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-R1", "rpay_type": "S", "rpay_type_nm": "만기일시상환방식", "lend_rate_type": "C", "lend_rate_type_nm": "변동금리", "lend_rate_min": 3.41, "lend_rate_max": 4.61, "lend_rate_avg": 3.88, "top_fin_grp_no": "020000"},
+    {"dcls_month": "202610", "fin_co_no": "0010001", "fin_prdt_cd": "TEST-R1", "rpay_type": "D", "rpay_type_nm": "분할상환방식", "lend_rate_type": "C", "lend_rate_type_nm": "변동금리", "lend_rate_min": 3.51, "lend_rate_max": 4.71, "lend_rate_avg": 3.95, "top_fin_grp_no": "020000"}
+  ]
+}
