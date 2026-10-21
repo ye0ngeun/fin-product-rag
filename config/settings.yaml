@@ -17,6 +17,23 @@ fss:
   max_retries: 3
   timeout_sec: 10
 
+molit:
+  # 국토교통부 아파트 매매 실거래가 (공공데이터포털, XML). 화면의 집 불빛(거래 사례)용이며 RAG 색인 대상이 아니다.
+  base_url: https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade
+  # 법정동 코드 앞 5자리(LAWD_CD): 구 이름
+  districts:
+    "11680": 강남구
+    "11440": 마포구
+    "11350": 노원구
+    "11620": 관악구
+  months: 6
+  # 마지막 계약년월(YYYYMM). 비우면 지난달까지 받는다. (이번 달은 신고 기한 30일 때문에 덜 채워져 있음)
+  end_month:
+  num_of_rows: 1000
+  request_interval_sec: 0.3
+  max_retries: 3
+  timeout_sec: 15
+
 wiki:
   api_url: https://ko.wikipedia.org/w/api.php
   request_interval_sec: 1.0

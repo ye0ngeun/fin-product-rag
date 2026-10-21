@@ -48,6 +48,46 @@ cp .env.example .env        # 키 값 채우기
 python -m src.data_prep.fss_collector
 ```
 
+## 메타데이터 색인 (F2001~F2002)
+
+수집한 `data/raw/fss/{mortgage,rent_house,credit}.json` 을 읽어 상품마다 baseList 1행과 금리 옵션(optionList)을 합쳐 텍스트 1개를 만들고, GMS 임베딩으로 `loan_meta` 컬렉션(`chroma_db/`)에 넣습니다.
+
+- 텍스트: 금융회사·권역, 상품명, 대출 유형, 담보 유형·상환 방식·금리 유형, 금리 요약(최저/최고/평균), 옵션별 금리, 대출 한도, 중도상환 수수료, 연체 이자율, 부대비용, 가입 방법, 공시 기간
+- 개인신용대출은 옵션이 신용점수 구간(900점 초과 ~ 300점 이하)별 금리라서 구간별로 적고, 금리 요약은 "대출금리" 행으로 계산합니다.
+- 청크 ID는 `{유형}:{fin_co_no}:{fin_prdt_cd}` 로 고정해서 다시 실행하면 덮어쓰기만 합니다. 원본에서 사라진 상품은 같은 유형 안에서 지웁니다.
+- 메타데이터에 `rate_min`, `rate_max`, `rate_avg`, `loan_type`, `fin_grp_nm` 등을 숫자·문자로 넣어 조건 검색(F2010)에 씁니다.
+
+```bash
+# 임베딩 없이 적재 건수와 샘플 텍스트만 확인
+python -m src.vectorstore.index_meta --dry-run --sample 3
+
+# 색인 (OPENAI_API_KEY, OPENAI_BASE_URL 필요)
+python -m src.vectorstore.index_meta
+python -m src.vectorstore.index_meta --types credit   # 한 유형만
+```
+
+출력에서 유형별 로드 건수, 색인 전후 청크 수, 샘플 텍스트를 확인합니다. 두 번 실행해도 "색인 후" 건수가 그대로면 정상입니다. Streamlit 화면 왼쪽에 현재 색인 건수가 나옵니다.
+
+## 아파트 실거래가 수집 (《불빛 하나》 화면용)
+
+국토교통부 아파트 매매 실거래가 API로 서울 구 4곳(강남·마포·노원·관악) × 지난 6개월을 받습니다. RAG 색인 대상은 아니고 화면의 거래 사례(집 불빛)에 씁니다. 공공데이터포털에서 받은 일반 인증키를 `.env` 의 `MOLIT_API_KEY` 에 넣습니다(Decoding 키 권장, Encoding 키도 됩니다). 구와 기간은 `config/settings.yaml` 의 `molit` 에서 바꿉니다.
+
+```bash
+python -m src.data_prep.molit_collector
+python -m src.data_prep.molit_collector --months 3 --end-month 202609
+```
+
+결과는 `data/raw/molit/apt_trade.csv`(정리본, 가격 단위 만원, 해제 거래 제외)와 `apt_trade.json`(응답 원본 필드)입니다.
+
+## 테스트
+
+네트워크 없이 픽스처와 가짜 임베딩으로 적재·색인·실거래가 파싱을 확인합니다.
+
+```bash
+pip install pytest
+python -m pytest -q
+```
+
 ## 실행
 
 ```bash
