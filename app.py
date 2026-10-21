@@ -2,7 +2,10 @@
 
 import streamlit as st
 
+from src.config import NOTICES
+
 st.set_page_config(page_title="대출 상품 RAG", page_icon="💰")
 st.title("대출 상품 RAG")
-st.caption("본 서비스는 정보 제공용이며 금융 전문가의 조언을 대신하지 않습니다.")
 st.info("아직 구현 전입니다.")
+st.caption(NOTICES["disclaimer"])
+st.caption(NOTICES["fss_source"])
