@@ -7,9 +7,13 @@
 """
 
 import csv
+import logging
 from pathlib import Path
 
 from pypdf import PdfReader
+
+# 800선 PDF의 일부 글꼴(CFF Type1)에서 나오는 fontTools 안내 경고. 본문 추출에는 영향 없음.
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 
 def _norm(name: str) -> str:

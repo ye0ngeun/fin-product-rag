@@ -45,7 +45,7 @@ wiki:
   max_retries: 3
   timeout_sec: 10
   max_queries: 4          # 프롬프트1 검색어 수 (상품 대출 유형 포함)
-  search_limit: 5         # 검색어당 후보 수
+  search_limit: 10        # 검색어당 전문 검색 후보 수 (제목 일치 문서는 따로 1개)
   max_docs_per_query: 2   # 프롬프트2가 고를 최대 문서 수
   min_chars: 200          # 이보다 짧은 본문은 버림
   cache_file: data/processed/wiki_cache.json
