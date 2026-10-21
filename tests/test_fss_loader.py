@@ -11,7 +11,7 @@ def test_mortgage_merges_options_and_dedupes():
     products, stats = load_products("mortgage", FIXTURES / "fss" / "mortgage.json")
     assert stats["products"] == 2
     assert stats["duplicates"] == 1
-    assert stats["options_orphan"] == 1
+    assert stats["options_orphan"] == 2  # 다른 상품 1행 + 이전 공시월 1행
     assert stats["without_options"] == 1
 
     p = next(p for p in products if p.id == "mortgage:0010001:1054")

@@ -3,6 +3,7 @@
 입력: data/raw/fss/{유형}.json (fss_collector 결과, baseList + optionList)
 출력: LoanProduct 목록. text 는 임베딩할 본문, metadata 는 Chroma 메타데이터(스칼라 값만).
 
+필드는 금감원 Open API 상세(주택담보 menuNo=700055, 전세 700056, 개인신용 700057) 기준.
 상품 키는 (fin_co_no, fin_prdt_cd) 이고 ID 는 `{유형}:{fin_co_no}:{fin_prdt_cd}` 로 고정한다.
 개인신용대출은 같은 상품코드에 상품 구분(crdt_prdt_type)이 여러 개면 ID 끝에 구분 코드를 붙인다.
 """
@@ -250,6 +251,12 @@ def load_products(loan_type: str, path: Path) -> tuple[list[LoanProduct], dict]:
         seen_opts.add(dedup)
         options.setdefault(_base_key(loan_type, row), []).append(row)
 
+    # 옵션은 (상품 키, 공시 제출월)로 연결한다. 남긴 baseList 행과 공시월이 다른 옵션은 버린다. (API 명세)
+    merged = {
+        key: [o for o in options.get(key, []) if o.get("dcls_month") in (None, "", base.get("dcls_month"))]
+        for key, base in bases.items()
+    }
+
     # 신용대출: 같은 (회사, 상품코드)에 구분이 여러 개일 때만 ID에 구분 코드를 붙인다.
     pair_counts: dict[tuple, int] = {}
     for key in bases:
@@ -260,7 +267,7 @@ def load_products(loan_type: str, path: Path) -> tuple[list[LoanProduct], dict]:
         product_id = f"{loan_type}:{key[0]}:{key[1]}"
         if loan_type == "credit" and pair_counts[key[:2]] > 1:
             product_id += f":{key[2]}"
-        opts = options.get(key, [])
+        opts = merged[key]
         products.append(
             LoanProduct(
                 id=product_id,
@@ -270,15 +277,15 @@ def load_products(loan_type: str, path: Path) -> tuple[list[LoanProduct], dict]:
             )
         )
 
-    matched = sum(len(options[k]) for k in bases if k in options)
+    matched = sum(len(v) for v in merged.values())
     stats = {
         "base_rows": len(base_rows),
         "products": len(products),
         "duplicates": len(base_rows) - len(bases),
         "option_rows": len(option_rows),
         "options_matched": matched,
-        "options_orphan": sum(len(v) for k, v in options.items() if k not in bases),
-        "without_options": sum(1 for k in bases if k not in options),
+        "options_orphan": len(seen_opts) - matched,
+        "without_options": sum(1 for v in merged.values() if not v),
     }
     return products, stats
 

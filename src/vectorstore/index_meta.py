@@ -30,7 +30,7 @@ def index_meta(loan_types: list[str], dry_run: bool = False, sample: int = 1, em
         print(
             f"[{name}] 상품 {s['products']}건 (baseList {s['base_rows']}행, 중복 {s['duplicates']}건 제거) / "
             f"금리옵션 {s['option_rows']}행 중 {s['options_matched']}행 병합, 옵션 없는 상품 {s['without_options']}건"
-            + (f", 상품 없는 옵션 {s['options_orphan']}행" if s["options_orphan"] else "")
+            + (f", 연결 안 된 옵션(상품 없음·공시월 다름) {s['options_orphan']}행" if s["options_orphan"] else "")
         )
     print(f"로드 합계: {len(products)}건")
 
