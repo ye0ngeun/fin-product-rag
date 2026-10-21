@@ -54,6 +54,26 @@ class WikiClient:
             for r in data.get("query", {}).get("search", [])
         ]
 
+    def lookup_title(self, title: str) -> dict | None:
+        """검색어와 제목이 같은 문서(넘겨주기 따라감). 없거나 동음이의어 문서면 None."""
+        data = self._get(
+            {
+                "action": "query",
+                "titles": title,
+                "redirects": 1,
+                "prop": "extracts|pageprops",
+                "exintro": 1,
+                "explaintext": 1,
+                "exsentences": 2,
+                "ppprop": "disambiguation",
+            }
+        )
+        pages = data.get("query", {}).get("pages", [])
+        if not pages or pages[0].get("missing") or "disambiguation" in pages[0].get("pageprops", {}):
+            return None
+        page = pages[0]
+        return {"pageid": page["pageid"], "title": page["title"], "snippet": (page.get("extract") or "")[:200], "exact": True}
+
     def fetch_page(self, pageid: int) -> dict | None:
         """본문(평문)과 원문 URL. 전체 본문 추출은 한 번에 한 문서만 된다."""
         data = self._get(

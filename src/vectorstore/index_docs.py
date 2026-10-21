@@ -7,6 +7,8 @@
       한 상품·질문으로 위키 검색어 추출 -> 검색 -> 후보 선별 -> 수집 -> 색인
   python -m src.vectorstore.index_docs --seed 2
       대출 유형마다 상품 2개씩 기본 질문으로 위키 문서를 미리 모은다
+  python -m src.vectorstore.index_docs --reset-wiki
+      loan_docs 의 위키 청크와 위키 캐시를 지운다 (선별 규칙을 바꾼 뒤 처음부터 다시 모을 때)
   (--dry-run 은 색인하지 않고 건수·검색어·샘플만 출력)
 
 청크 ID: {product_id}:{doc_id}:{순번} 고정. 다시 실행해도 덮어쓰기만 한다.
@@ -88,6 +90,8 @@ def index_wiki(products, question=None, dry_run=False, llm=None, wiki=None, cach
 
         wiki = WikiClient()
     cache = cache or WikiCache(ROOT_DIR / settings["wiki"]["cache_file"])
+    if cache.stale:
+        print("위키 캐시 버전이 바뀌어 검색어를 다시 수집합니다. (이미 받은 문서는 다시 받지 않음)")
 
     pages, logs = [], []
     for p in products:
@@ -110,6 +114,20 @@ def index_wiki(products, question=None, dry_run=False, llm=None, wiki=None, cach
     return {**result, "pages": len(pages), "logs": logs}
 
 
+def reset_wiki(embeddings=None, persist_dir=None) -> int:
+    """위키 청크와 캐시를 지운다. 지운 청크 수를 돌려준다."""
+    settings = get_settings()
+    store = get_store(settings["vectorstore"]["doc_collection"], embeddings=embeddings, persist_dir=persist_dir)
+    ids = store.get(where={"doc_type": "wiki"}, include=[])["ids"]
+    if ids:
+        store.delete(ids=ids)
+    cache_path = ROOT_DIR / settings["wiki"]["cache_file"]
+    if cache_path.exists():
+        cache_path.unlink()
+    print(f"위키 청크 {len(ids)}개와 캐시({cache_path.name})를 지웠습니다.")
+    return len(ids)
+
+
 def main() -> None:
     settings = get_settings()
     parser = argparse.ArgumentParser(description="외부 문서 수집·색인 (loan_docs)")
@@ -117,10 +135,14 @@ def main() -> None:
     parser.add_argument("--product", action="append", help="상품 ID (여러 번 줄 수 있음)")
     parser.add_argument("--question", help="질문 (없으면 기본 질문)")
     parser.add_argument("--seed", type=int, default=0, help="대출 유형마다 앞에서부터 N개 상품으로 위키 수집")
+    parser.add_argument("--reset-wiki", action="store_true", help="위키 청크와 위키 캐시 삭제")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
-    if not (args.glossary or args.product or args.seed):
-        parser.error("--glossary, --product, --seed 중 하나 이상을 주세요.")
+    if not (args.glossary or args.product or args.seed or args.reset_wiki):
+        parser.error("--glossary, --product, --seed, --reset-wiki 중 하나 이상을 주세요.")
+
+    if args.reset_wiki:
+        reset_wiki()
 
     if args.glossary:
         index_glossaries(dry_run=args.dry_run)

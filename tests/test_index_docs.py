@@ -6,10 +6,17 @@ from langchain_core.embeddings import DeterministicFakeEmbedding
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from src.config import get_settings
-from src.data_prep.doc_collector import WikiCache, collect_wiki, extract_queries, select_candidates
+from src.data_prep.doc_collector import (
+    CACHE_VERSION,
+    WikiCache,
+    collect_wiki,
+    extract_queries,
+    gather_candidates,
+    select_candidates,
+)
 from src.data_prep.fss_loader import load_products
 from src.data_prep.glossary_loader import load_all_glossaries, load_pdf
-from src.vectorstore.index_docs import chunk_records, index_glossaries, index_wiki
+from src.vectorstore.index_docs import chunk_records, index_glossaries, index_wiki, reset_wiki
 
 FIXTURES = Path(__file__).parent / "fixtures"
 WIKI_CFG = {"max_queries": 3, "search_limit": 5, "max_docs_per_query": 1, "min_chars": 10}
@@ -30,6 +37,10 @@ class FakeWiki:
     def search(self, query, limit):
         self.searches.append(query)
         return self.results.get(query, [])[:limit]
+
+    def lookup_title(self, title):
+        self.searches.append(f"title:{title}")
+        return None
 
     def fetch_page(self, pageid):
         self.fetches.append(pageid)
@@ -144,3 +155,61 @@ def test_index_wiki_end_to_end(tmp_path):
     )
     assert result["pages"] == 2 and result["after"] >= 2
     assert (tmp_path / "cache.json").exists()
+
+
+class ExactWiki(FakeWiki):
+    """'중도상환수수료' 제목 문서가 있고, 전문 검색에는 잡음(베토벤)이 섞인 경우"""
+
+    def search(self, query, limit):
+        self.searches.append(query)
+        return [
+            {"pageid": 2, "title": "중도상환수수료", "snippet": "대출을 미리 갚을 때"},
+            {"pageid": 7, "title": "루트비히 판 베토벤", "snippet": "독일의 작곡가"},
+            {"pageid": 8, "title": "적격전환대출", "snippet": "기존 대출의 상환 부담을"},
+        ]
+
+    def lookup_title(self, title):
+        if title == "중도상환수수료":
+            return {"pageid": 2, "title": "중도상환수수료", "snippet": "만기 전에 갚을 때", "exact": True}
+        return None
+
+
+def test_gather_candidates_exact_first_and_filters_noise():
+    cands = gather_candidates(ExactWiki(), "중도상환수수료", 10)
+    assert [c["title"] for c in cands] == ["중도상환수수료", "적격전환대출"]  # 중복·베토벤 제외
+    assert cands[0]["exact"] is True
+
+
+def test_exact_title_always_kept_even_if_model_picks_none():
+    cands = gather_candidates(ExactWiki(), "중도상환수수료", 10)
+    picked = select_candidates(FakeListChatModel(responses=["[]"]), "q", "p", "중도상환수수료", cands, 2, "주택담보대출")
+    assert [c["title"] for c in picked] == ["중도상환수수료"]
+
+
+def test_cache_version_change_drops_queries_keeps_pages(tmp_path):
+    path = tmp_path / "cache.json"
+    path.write_text('{"queries": {"고정금리": {"titles": []}}, "pages": {"1": {"title": "t"}}}', encoding="utf-8")
+    cache = WikiCache(path)  # 버전 없는 예전 캐시
+    assert cache.stale and cache.queries == {} and "1" in cache.pages
+    cache.save()
+    assert WikiCache(path).stale is False
+    assert CACHE_VERSION >= 2
+
+
+def test_reset_wiki_removes_only_wiki_chunks(tmp_path, monkeypatch):
+    emb = DeterministicFakeEmbedding(size=16)
+    index_glossaries(docs_dir=FIXTURES / "docs", embeddings=emb, persist_dir=tmp_path)
+    products, _ = load_products("mortgage", FIXTURES / "fss" / "mortgage.json")
+    index_wiki(
+        products[:1],
+        llm=FakeListChatModel(responses=['["중도상환수수료"]', "[0]", "[1]"]),
+        wiki=FakeWiki(),
+        cache=WikiCache(tmp_path / "cache.json"),
+        embeddings=emb,
+        persist_dir=tmp_path,
+    )
+    monkeypatch.setattr("src.vectorstore.index_docs.ROOT_DIR", tmp_path)
+    assert reset_wiki(embeddings=emb, persist_dir=tmp_path) == 2
+    from src.vectorstore.store import count_collection
+
+    assert count_collection("loan_docs", persist_dir=tmp_path) == 4  # 용어사전만 남음
