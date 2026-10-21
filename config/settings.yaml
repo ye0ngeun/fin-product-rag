@@ -1,0 +1,39 @@
+# 실행 설정. 청킹·검색 값은 코드가 아니라 여기서 바꾼다. (F2005, F2006)
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  chroma_dir: chroma_db
+
+fss:
+  base_url: https://finlife.fss.or.kr/finlifeapi
+  # 권역 코드: 020000 은행, 030300 저축은행
+  fin_groups: ["020000", "030300"]
+  request_interval_sec: 0.5
+  max_retries: 3
+  timeout_sec: 10
+
+wiki:
+  api_url: https://ko.wikipedia.org/w/api.php
+  request_interval_sec: 1.0
+  max_retries: 3
+
+llm:
+  chat_model: gpt-4.1-mini
+  embedding_model: text-embedding-3-small
+  temperature: 0
+
+vectorstore:
+  meta_collection: product_meta
+  doc_collection: product_docs
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 200
+
+retrieval:
+  top_k: 5
+  # similarity | mmr (F2014)
+  search_type: similarity
+  mmr_fetch_k: 20
+  mmr_lambda: 0.5
