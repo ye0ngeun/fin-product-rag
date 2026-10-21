@@ -3,6 +3,10 @@
 흐름: 프롬프트1 검색어 추출 -> 검색어별 후보 모으기 -> 프롬프트2 후보 선별 -> 본문 수집
 - 후보: 검색어와 제목이 같은 문서(넘겨주기 포함)를 먼저 찾고, 전문 검색 결과 중 제목·요약에
   검색어 글자가 들어간 것만 더한다. (검색 잡음 제거)
+- 프롬프트2는 후보마다 종류(개념/제도/공공기관/기업/인물/기타)와 관련 여부만 판단하고,
+  어떤 종류를 쓸지는 코드(ALLOWED_KINDS)가 정한다. 회사·서비스 문서는 여기서 걸러진다.
+- 위키에 해당 개념 문서가 없어도 괜찮다. 같은 용어는 용어사전(glossary_*)에 이미 색인되어 있어
+  검색 단계(F2006)에서 근거로 쓰인다.
 - 제목이 검색어와 같은 문서는 그 개념 자체의 문서라 선별 결과와 상관없이 남긴다.
   상품의 대출 유형(예: 주택담보대출)은 검색어에 항상 넣으므로 그 문서도 항상 남는다.
 - 이미 수집한 검색어는 캐시(data/processed/wiki_cache.json)를 보고 다시 검색·수집하지 않는다.
@@ -22,7 +26,7 @@ from src.data_prep.wiki_client import LICENSE, WikiClient
 from src.rag.llm import parse_json_list
 from src.rag.prompts import CANDIDATE_SELECTION_PROMPT, QUERY_EXTRACTION_PROMPT
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 
 
 class WikiCache:
@@ -89,6 +93,10 @@ def gather_candidates(wiki: WikiClient, query: str, limit: int) -> list[dict]:
     return candidates
 
 
+# 프롬프트2가 매기는 문서 종류 중 근거로 쓰는 것. 기업·서비스·인물·기타는 관련 있다고 해도 버린다.
+ALLOWED_KINDS = {"개념", "제도", "공공기관"}
+
+
 def select_candidates(
     llm: BaseChatModel,
     question: str,
@@ -97,10 +105,15 @@ def select_candidates(
     candidates: list[dict],
     max_docs: int,
     own_topic: str,
-) -> list[dict]:
-    """프롬프트2. 제목이 검색어·대출 유형과 같은 문서는 항상 남기고, 나머지는 모델이 고른다."""
+) -> tuple[list[dict], list[dict]]:
+    """프롬프트2. 후보마다 문서 종류와 관련 여부를 받아 코드가 고른다.
+
+    - 제목이 검색어·대출 유형과 같은 문서는 항상 남긴다.
+    - 나머지는 종류가 개념·제도·공공기관이고 관련 있다고 판단된 것만, 모델이 준 순서대로 max_docs 개까지.
+    돌려주는 값: (선택된 후보, 후보별 판단 [{title, kind, relevant}])
+    """
     if not candidates:
-        return []
+        return [], []
     keys = {own_topic.replace(" ", ""), query.replace(" ", "")}
     keep = [i for i, c in enumerate(candidates) if c.get("exact") or c["title"].replace(" ", "") in keys]
     listing = "\n".join(
@@ -108,12 +121,19 @@ def select_candidates(
     )
     reply = llm.invoke(
         CANDIDATE_SELECTION_PROMPT.format_messages(
-            question=question, product=product_text, query=query, candidates=listing, max_docs=max_docs
+            question=question, product=product_text, query=query, candidates=listing
         )
     )
-    picked = [i for i in parse_json_list(reply.content) if isinstance(i, int) and 0 <= i < len(candidates)]
-    order = keep + [i for i in picked if i not in keep]
-    return [candidates[i] for i in order[: max(max_docs, len(keep))]]
+    judged, picked = [], []
+    for item in parse_json_list(reply.content):
+        if not isinstance(item, dict) or not isinstance(item.get("no"), int) or not 0 <= item["no"] < len(candidates):
+            continue
+        i, kind, relevant = item["no"], str(item.get("kind", "")), item.get("relevant") is True
+        judged.append({"title": candidates[i]["title"], "kind": kind, "relevant": relevant})
+        if relevant and kind in ALLOWED_KINDS and i not in keep and i not in picked:
+            picked.append(i)
+    chosen = keep + picked[:max_docs]
+    return [candidates[i] for i in chosen], judged
 
 
 def collect_wiki(
@@ -137,7 +157,9 @@ def collect_wiki(
             log["steps"].append({"query": query, "cached": True, "titles": cache.queries[cache.key(query)]["titles"]})
             continue
         candidates = gather_candidates(wiki, query, cfg["search_limit"])
-        selected = select_candidates(llm, question, product_text, query, candidates, cfg["max_docs_per_query"], own_topic)
+        selected, judged = select_candidates(
+            llm, question, product_text, query, candidates, cfg["max_docs_per_query"], own_topic
+        )
         titles = []
         for c in selected:
             titles.append(c["title"])
@@ -154,6 +176,7 @@ def collect_wiki(
                 "query": query,
                 "cached": False,
                 "candidates": [c["title"] + (" (제목 일치)" if c.get("exact") else "") for c in candidates],
+                "judged": judged,
                 "selected": titles,
             }
         )

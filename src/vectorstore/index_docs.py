@@ -103,7 +103,10 @@ def index_wiki(products, question=None, dry_run=False, llm=None, wiki=None, cach
             if step["cached"]:
                 print(f"  - {step['query']}: 이미 수집함 (캐시) {step['titles']}")
             else:
-                print(f"  - {step['query']}: 후보 {step['candidates']} -> 선별(프롬프트2) {step['selected']}")
+                print(f"  - {step['query']}: 후보 {step['candidates']}")
+                judged = ", ".join(f"{j['title']}({j['kind']}{'·관련' if j['relevant'] else ''})" for j in step["judged"])
+                print(f"    판단(프롬프트2): {judged}")
+                print(f"    -> 선별 {step['selected']}")
         print(f"새로 받은 문서 {len(new_pages)}건: {[x['title'] for x in new_pages]}")
         pages.extend(new_pages)
         logs.append(log)

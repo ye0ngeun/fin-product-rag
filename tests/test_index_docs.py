@@ -56,16 +56,17 @@ def test_extract_queries_always_includes_own_topic():
 
 def test_select_keeps_own_topic_and_filters_index():
     cands = [{"pageid": 1, "title": "주택담보대출", "snippet": ""}, {"pageid": 9, "title": "담보", "snippet": ""}]
-    llm = FakeListChatModel(responses=["[1, 7]"])  # 7 은 없는 번호
-    picked = select_candidates(llm, "q", "p", "주택담보대출", cands, max_docs=1, own_topic="주택담보대출")
-    assert [c["title"] for c in picked] == ["주택담보대출"]
+    llm = FakeListChatModel(responses=['[{"no": 1, "kind": "개념", "relevant": true}, {"no": 7, "kind": "개념", "relevant": true}]'])
+    picked, judged = select_candidates(llm, "q", "p", "주택담보대출", cands, max_docs=1, own_topic="주택담보대출")
+    assert [c["title"] for c in picked] == ["주택담보대출", "담보"]  # 7 은 없는 번호라 무시
+    assert [j["title"] for j in judged] == ["담보"]
 
 
 def test_collect_wiki_uses_cache(tmp_path):
     cache = WikiCache(tmp_path / "cache.json")
     wiki = FakeWiki()
     # 프롬프트1, 프롬프트2(주택담보대출), 프롬프트2(중도상환수수료)
-    llm = FakeListChatModel(responses=['["중도상환수수료"]', "[0]", "[1]"])
+    llm = FakeListChatModel(responses=['["중도상환수수료"]', '[{"no": 0, "kind": "개념", "relevant": true}]', '[{"no": 1, "kind": "개념", "relevant": true}]'])
     pages, log = collect_wiki("수수료?", "상품", "주택담보대출", llm, wiki, cache, WIKI_CFG)
     assert [p["title"] for p in pages] == ["주택담보대출", "중도상환수수료"]
     assert log["steps"][1]["selected"] == ["중도상환수수료"]  # 영화 문서는 고르지 않음
@@ -143,7 +144,7 @@ def test_index_glossaries_twice_no_duplicates(tmp_path):
 
 def test_index_wiki_end_to_end(tmp_path):
     products, _ = load_products("mortgage", FIXTURES / "fss" / "mortgage.json")
-    llm = FakeListChatModel(responses=['["중도상환수수료"]', "[0]", "[1]"])
+    llm = FakeListChatModel(responses=['["중도상환수수료"]', '[{"no": 0, "kind": "개념", "relevant": true}]', '[{"no": 1, "kind": "개념", "relevant": true}]'])
     result = index_wiki(
         products[:1],
         question="중도상환수수료?",
@@ -182,8 +183,24 @@ def test_gather_candidates_exact_first_and_filters_noise():
 
 def test_exact_title_always_kept_even_if_model_picks_none():
     cands = gather_candidates(ExactWiki(), "중도상환수수료", 10)
-    picked = select_candidates(FakeListChatModel(responses=["[]"]), "q", "p", "중도상환수수료", cands, 2, "주택담보대출")
+    picked, _ = select_candidates(FakeListChatModel(responses=["[]"]), "q", "p", "중도상환수수료", cands, 2, "주택담보대출")
     assert [c["title"] for c in picked] == ["중도상환수수료"]
+
+
+def test_company_and_irrelevant_kinds_dropped_by_code():
+    cands = [
+        {"pageid": 1, "title": "오션펀딩", "snippet": "중도상환수수료 없는 대출"},
+        {"pageid": 2, "title": "이자율", "snippet": "금리"},
+        {"pageid": 3, "title": "한국은행", "snippet": "중앙은행"},
+        {"pageid": 4, "title": "루트비히 판 베토벤", "snippet": "작곡가"},
+    ]
+    reply = (
+        '[{"no": 0, "kind": "기업", "relevant": true}, {"no": 1, "kind": "개념", "relevant": true},'
+        ' {"no": 3, "kind": "인물", "relevant": false}, {"no": 2, "kind": "공공기관", "relevant": true}]'
+    )
+    picked, judged = select_candidates(FakeListChatModel(responses=[reply]), "q", "p", "고정금리", cands, 2, "주택담보대출")
+    assert [c["title"] for c in picked] == ["이자율", "한국은행"]  # 모델이 관련 있다고 해도 기업은 버림
+    assert len(judged) == 4
 
 
 def test_cache_version_change_drops_queries_keeps_pages(tmp_path):
@@ -202,7 +219,7 @@ def test_reset_wiki_removes_only_wiki_chunks(tmp_path, monkeypatch):
     products, _ = load_products("mortgage", FIXTURES / "fss" / "mortgage.json")
     index_wiki(
         products[:1],
-        llm=FakeListChatModel(responses=['["중도상환수수료"]', "[0]", "[1]"]),
+        llm=FakeListChatModel(responses=['["중도상환수수료"]', '[{"no": 0, "kind": "개념", "relevant": true}]', '[{"no": 1, "kind": "개념", "relevant": true}]']),
         wiki=FakeWiki(),
         cache=WikiCache(tmp_path / "cache.json"),
         embeddings=emb,
