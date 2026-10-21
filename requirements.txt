@@ -17,6 +17,8 @@ typing-extensions==4.16.0
 # 설정 파일(config/settings.yaml) 로드
 PyYAML==6.0.2
 
+# 테스트 (선택): pip install pytest
+
 # (심화 F2013 선택 시) HTML/JS 화면용 API 서버
 # fastapi==0.141.1
 # uvicorn[standard]==0.52.4

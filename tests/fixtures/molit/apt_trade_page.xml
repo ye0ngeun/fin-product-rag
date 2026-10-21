@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+  <header><resultCode>000</resultCode><resultMsg>OK</resultMsg></header>
+  <body>
+    <items>
+      <item><aptDong> </aptDong><aptNm>테스트아파트</aptNm><buildYear>2005</buildYear><cdealDay> </cdealDay><cdealType> </cdealType><dealAmount>    82,500</dealAmount><dealDay>7</dealDay><dealMonth>9</dealMonth><dealYear>2026</dealYear><dealingGbn>중개거래</dealingGbn><excluUseAr>84.97</excluUseAr><floor>12</floor><jibun>123</jibun><sggCd>11440</sggCd><umdNm>공덕동</umdNm></item>
+      <item><aptNm>해제아파트</aptNm><buildYear>1998</buildYear><cdealDay>26.09.20</cdealDay><cdealType>O</cdealType><dealAmount>55,000</dealAmount><dealDay>15</dealDay><dealMonth>9</dealMonth><dealYear>2026</dealYear><dealingGbn>직거래</dealingGbn><excluUseAr>59.9</excluUseAr><floor>3</floor><jibun>45</jibun><sggCd>11440</sggCd><umdNm>아현동</umdNm></item>
+    </items>
+    <numOfRows>1000</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount>
+  </body>
+</response>

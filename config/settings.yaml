@@ -3,6 +3,8 @@
 paths:
   raw_dir: data/raw
   processed_dir: data/processed
+  # 국토교통부 법정동코드 CSV를 넣는 곳
+  codes_dir: data/raw/codes
   chroma_dir: chroma_db
 
 fss:
@@ -16,6 +18,26 @@ fss:
   request_interval_sec: 0.5
   max_retries: 3
   timeout_sec: 10
+
+molit:
+  # 국토교통부 아파트 매매 실거래가 (공공데이터포털, XML). 화면의 집 불빛(거래 사례)용이며 RAG 색인 대상이 아니다.
+  base_url: https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade
+  # 수집할 서울 구. 지역코드(LAWD_CD)는 법정동코드 CSV(data/raw/codes/)에서 찾는다.
+  districts: [강남구, 마포구, 노원구, 관악구]
+  # 야경 화면에서 구를 놓을 방향 (임시 배치, 화면 구성에 맞게 바꿔도 된다)
+  directions:
+    중심: [종로구, 중구, 용산구]
+    북: [은평구, 강북구, 도봉구, 노원구, 성북구]
+    동: [동대문구, 중랑구, 성동구, 광진구, 강동구, 송파구]
+    서: [서대문구, 마포구, 강서구, 양천구, 구로구, 영등포구]
+    남: [강남구, 서초구, 관악구, 동작구, 금천구]
+  months: 6
+  # 마지막 계약년월(YYYYMM). 비우면 지난달까지 받는다. (이번 달은 신고 기한 30일 때문에 덜 채워져 있음)
+  end_month:
+  num_of_rows: 1000
+  request_interval_sec: 0.3
+  max_retries: 3
+  timeout_sec: 15
 
 wiki:
   api_url: https://ko.wikipedia.org/w/api.php
