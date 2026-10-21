@@ -65,3 +65,28 @@ def test_fetch_month_paginates():
     items = fetch_month(session, "key", "11440", "202609", CFG)
     assert len(items) == 2
     assert session.pages == [1, 2]
+
+
+def test_seoul_region_table_from_cp949_csv():
+    from src.data_prep.region_codes import find_code_file, load_seoul_regions
+
+    path = find_code_file(Path(__file__).parent / "fixtures" / "codes")
+    regions = load_seoul_regions(path)
+    assert regions.lawd_cd("마포구") == "11440"
+    assert regions.gu_by_code == {"11440": "마포구", "11680": "강남구"}  # 부산 제외
+    assert regions.code_by_dong[("11440", "공덕동")] == "1144010200"
+    assert "1144099900" not in regions.dong_by_code  # 폐지 제외
+    with pytest.raises(KeyError):
+        regions.lawd_cd("중구")  # 부산 중구는 서울 표에 없음
+
+
+def test_normalize_attaches_dong_code_and_direction():
+    from src.data_prep.molit_collector import direction_by_gu
+    from src.data_prep.region_codes import find_code_file, load_seoul_regions
+
+    regions = load_seoul_regions(find_code_file(Path(__file__).parent / "fixtures" / "codes"))
+    directions = direction_by_gu({"서": ["마포구"], "남": ["강남구"]})
+    items, _ = parse_response(XML)
+    row = normalize(items[0], "11440", "마포구", regions, directions["마포구"])
+    assert row["bjd_cd"] == "1144010200"  # umdCd 없음 -> 동 이름으로 찾음
+    assert row["direction"] == "서"

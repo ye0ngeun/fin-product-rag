@@ -5,6 +5,7 @@
 실행: python -m src.data_prep.molit_collector
      python -m src.data_prep.molit_collector --months 3 --end-month 202609
 수집할 구와 기간은 config/settings.yaml 의 molit 에서 정한다. 인증키는 .env 의 MOLIT_API_KEY.
+구 이름 -> 지역코드, 법정동 이름 -> 법정동코드는 data/raw/codes/ 의 국토교통부 법정동코드 CSV로 찾는다.
 결과: data/raw/molit/apt_trade.json (원본 필드 포함), data/raw/molit/apt_trade.csv (정리본, 해제 거래 제외)
 """
 
@@ -20,12 +21,14 @@ from urllib.parse import unquote
 import requests
 
 from src.config import get_env, get_settings
+from src.data_prep.region_codes import RegionTable, find_code_file, load_seoul_regions
 
 SOURCE_NAME = "국토교통부 아파트 매매 실거래가 자료 (공공데이터포털)"
 SUCCESS_CODES = {"000", "00"}
 # 응답 태그: 현재 영문 태그, 예전 한글 태그도 함께 받는다.
 FIELDS = {
     "sgg_cd": ["sggCd", "지역코드"],
+    "umd_cd": ["umdCd", "법정동읍면동코드"],
     "umd_nm": ["umdNm", "법정동"],
     "apt_nm": ["aptNm", "아파트"],
     "jibun": ["jibun", "지번"],
@@ -42,7 +45,7 @@ FIELDS = {
     "cdeal_day": ["cdealDay", "해제사유발생일"],
 }
 CSV_COLUMNS = [
-    "lawd_cd", "gu_nm", "umd_nm", "apt_nm", "jibun", "apt_dong", "area_m2", "area_pyeong",
+    "lawd_cd", "gu_nm", "bjd_cd", "umd_nm", "direction", "apt_nm", "jibun", "apt_dong", "area_m2", "area_pyeong",
     "floor", "build_year", "deal_date", "deal_ym", "price_manwon", "dealing_type",
 ]
 
@@ -88,8 +91,18 @@ def parse_response(xml_text: str) -> tuple[list[dict], int]:
     return items, total
 
 
-def normalize(raw: dict, lawd_cd: str, gu_nm: str) -> dict:
-    """원본 거래 1건을 화면에서 쓰기 좋은 형태로 바꾼다. 가격 단위는 만원."""
+def direction_by_gu(directions: dict) -> dict[str, str]:
+    """settings 의 {방향: [구, ...]} 를 {구: 방향} 으로 뒤집는다."""
+    return {gu: d for d, gus in (directions or {}).items() for gu in gus}
+
+
+def normalize(
+    raw: dict, lawd_cd: str, gu_nm: str, regions: RegionTable | None = None, direction: str = ""
+) -> dict:
+    """원본 거래 1건을 화면에서 쓰기 좋은 형태로 바꾼다. 가격 단위는 만원.
+
+    bjd_cd 는 10자리 법정동코드. 응답에 umdCd 가 있으면 지역코드와 붙이고, 없으면 동 이름으로 찾는다.
+    """
     def pick(name):
         for tag in FIELDS[name]:
             if raw.get(tag) not in (None, ""):
@@ -98,10 +111,16 @@ def normalize(raw: dict, lawd_cd: str, gu_nm: str) -> dict:
 
     y, m, d = _to_int(pick("deal_year")), _to_int(pick("deal_month")), _to_int(pick("deal_day"))
     area = _to_float(pick("area_m2"))
+    umd_nm, umd_cd = pick("umd_nm"), pick("umd_cd")
+    bjd_cd = f"{lawd_cd}{umd_cd}" if len(umd_cd) == 5 else ""
+    if regions is not None and not (bjd_cd in regions.dong_by_code):
+        bjd_cd = regions.code_by_dong.get((lawd_cd, umd_nm), bjd_cd)
     return {
         "lawd_cd": lawd_cd,
         "gu_nm": gu_nm,
-        "umd_nm": pick("umd_nm"),
+        "bjd_cd": bjd_cd,
+        "umd_nm": umd_nm,
+        "direction": direction,
         "apt_nm": pick("apt_nm"),
         "jibun": pick("jibun"),
         "apt_dong": pick("apt_dong"),
@@ -158,7 +177,11 @@ def main() -> None:
     # 포털의 Encoding 키(%2B 등)를 넣어도 requests 가 다시 인코딩하지 않도록 풀어 둔다.
     api_key = unquote(get_env("MOLIT_API_KEY"))
     months = recent_months(args.months, args.end_month)
-    districts = {str(k): v for k, v in cfg["districts"].items()}
+    code_file = find_code_file(settings["paths"]["codes_dir"])
+    regions = load_seoul_regions(code_file)
+    districts = {regions.lawd_cd(gu): gu for gu in cfg["districts"]}
+    directions = direction_by_gu(cfg.get("directions"))
+    print(f"법정동코드: {code_file.name} (서울 구 {len(regions.gu_by_code)}개, 동 {len(regions.dong_by_code)}개)")
     out_dir = settings["paths"]["raw_dir"] / "molit"
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"수집 기간 {months[0]} ~ {months[-1]} ({len(months)}개월), 구 {len(districts)}개")
@@ -170,7 +193,7 @@ def main() -> None:
             for deal_ym in months:
                 for item in fetch_month(session, api_key, lawd_cd, deal_ym, cfg):
                     raw_rows.append({"lawd_cd": lawd_cd, "deal_ym_req": deal_ym, **item})
-                    rows.append(normalize(item, lawd_cd, gu_nm))
+                    rows.append(normalize(item, lawd_cd, gu_nm, regions, directions.get(gu_nm, "")))
                     count += 1
             print(f"[{gu_nm}] {count}건", flush=True)
 
@@ -196,6 +219,9 @@ def main() -> None:
         writer.writerows(sorted(valid, key=lambda r: (r["lawd_cd"], r["deal_date"])))
 
     print(f"\n전체 {len(rows)}건, 해제·가격없음 제외 {len(rows) - len(valid)}건 -> CSV {len(valid)}건")
+    unmatched = sorted({(r["gu_nm"], r["umd_nm"]) for r in valid if not r["bjd_cd"]})
+    if unmatched:
+        print(f"법정동코드를 못 찾은 동 {len(unmatched)}곳: {unmatched[:10]}")
     for lawd_cd, gu_nm in districts.items():
         prices = [r["price_manwon"] for r in valid if r["lawd_cd"] == lawd_cd]
         if prices:

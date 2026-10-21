@@ -72,12 +72,14 @@ python -m src.vectorstore.index_meta --types credit   # 한 유형만
 
 국토교통부 아파트 매매 실거래가 API로 서울 구 4곳(강남·마포·노원·관악) × 지난 6개월을 받습니다. RAG 색인 대상은 아니고 화면의 거래 사례(집 불빛)에 씁니다. 공공데이터포털에서 받은 일반 인증키를 `.env` 의 `MOLIT_API_KEY` 에 넣습니다(Decoding 키 권장, Encoding 키도 됩니다). 구와 기간은 `config/settings.yaml` 의 `molit` 에서 바꿉니다.
 
+구 이름을 지역코드(LAWD_CD)로 바꾸고 거래마다 10자리 법정동코드를 붙이는 데 공공데이터포털 "국토교통부_법정동코드" CSV를 씁니다. 받은 파일을 이름 그대로 `data/raw/codes/` 에 넣으세요(CP949 그대로 됩니다, 여러 개면 날짜가 가장 늦은 파일). 서울의 "존재" 행(구 25개, 동 467개)만 씁니다. 구별 야경 방향(중심·동·서·남·북)은 `molit.directions` 에 임시로 나눠 두었습니다.
+
 ```bash
 python -m src.data_prep.molit_collector
 python -m src.data_prep.molit_collector --months 3 --end-month 202609
 ```
 
-결과는 `data/raw/molit/apt_trade.csv`(정리본, 가격 단위 만원, 해제 거래 제외)와 `apt_trade.json`(응답 원본 필드)입니다.
+결과는 `data/raw/molit/apt_trade.csv`(정리본: 구·법정동코드·동·방향·면적·층·거래일·가격(만원), 해제 거래 제외)와 `apt_trade.json`(응답 원본 필드)입니다.
 
 ## 테스트
 
