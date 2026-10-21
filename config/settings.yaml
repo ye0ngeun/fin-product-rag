@@ -43,6 +43,42 @@ wiki:
   api_url: https://ko.wikipedia.org/w/api.php
   request_interval_sec: 1.0
   max_retries: 3
+  timeout_sec: 10
+  max_queries: 4          # 프롬프트1 검색어 수 (상품 대출 유형 포함)
+  search_limit: 5         # 검색어당 후보 수
+  max_docs_per_query: 2   # 프롬프트2가 고를 최대 문서 수
+  min_chars: 200          # 이보다 짧은 본문은 버림
+  cache_file: data/processed/wiki_cache.json
+
+# 외부 문서 파일 (data/raw/docs/ 에 받은 이름 그대로 둔다)
+docs:
+  dir: data/raw/docs
+  glossaries:
+    - key: hf
+      doc_type: glossary_hf
+      name: 한국주택금융공사 단어사전
+      url: https://www.data.go.kr/data/15160532/fileData.do
+      pattern: "*주택금융공사*단어사전*.csv"
+      columns: {id: 단어아이디, term: 단어명, en: 단어영문명, desc: 단어설명}
+    - key: epost
+      doc_type: glossary_epost
+      name: 우체국예금보험 금융용어사전
+      url: https://www.data.go.kr/data/15163200/fileData.do
+      pattern: "*우체국예금보험*금융용어사전*.csv"
+      columns: {id: 금융용어번호, term: 한글제목, en: 영문제목, desc: 금융용어사전내용}
+    - key: epostbot
+      doc_type: glossary_epost_chatbot
+      name: 우체국 고객센터 챗봇 금융용어 사전
+      url: https://www.data.go.kr/data/15163690/fileData.do
+      pattern: "*챗봇*금융용어*.csv"
+      columns: {term: 용어, desc: 설명}
+  pdfs:
+    - key: bok800
+      doc_type: glossary_bok
+      name: 한국은행 경제금융용어 800선
+      url: https://www.bok.or.kr/portal/bbs/B0000249/view.do?menuNo=200765&nttId=10096081
+      pattern: "*800*.pdf"
+      skip_pages: 0
 
 llm:
   chat_model: gpt-4.1-mini
