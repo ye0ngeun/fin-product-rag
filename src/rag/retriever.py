@@ -73,7 +73,7 @@ def question_terms(question: str) -> list[str]:
 SHORT_GLOSSARIES = ["glossary_hf", "glossary_epost", "glossary_epost_chatbot"]
 
 
-def _keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) -> list[Document]:
+def keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) -> list[Document]:
     """용어사전에서 제목이 질문 용어와 같거나, 본문 첫 줄에 '(약어)'가 있는 항목"""
     hits: list[Document] = []
     for term in question_terms(question):
@@ -99,7 +99,7 @@ def _keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) 
     return hits[:limit]
 
 
-def _evidence(doc: Document, chunk_id: str, collection: str, score: float | None = None, how: str = "") -> dict:
+def make_evidence(doc: Document, chunk_id: str, collection: str, score: float | None = None, how: str = "") -> dict:
     meta = doc.metadata or {}
     doc_type = "meta" if collection == "meta" else meta.get("doc_type", "")
     return {
@@ -132,18 +132,18 @@ def retrieve(
         got = meta_store.get(ids=[product_id])
         if got["ids"]:
             doc = Document(page_content=got["documents"][0], metadata=got["metadatas"][0])
-            found.append(_evidence(doc, product_id, "meta"))
+            found.append(make_evidence(doc, product_id, "meta"))
         where = {"product_id": {"$in": ["common", product_id]}}
     else:
         # 상품을 고르지 않은 용어 질문에서 상관없는 상품이 끼지 않도록 메타는 더 높은 관련도를 요구한다.
         for doc, sc in _scored(meta_store, question, cfg.get("meta_top_k", 3), cfg, None, cfg.get("meta_min_relevance", 0)):
-            found.append(_evidence(doc, doc.id, "meta", sc, "유사도"))
+            found.append(make_evidence(doc, doc.id, "meta", sc, "유사도"))
         where = None
 
-    for doc in _keyword_hits(doc_store, question, where, cfg.get("keyword_top_k", 2)):
-        found.append(_evidence(doc, doc.id, "docs", None, "용어 일치"))
+    for doc in keyword_hits(doc_store, question, where, cfg.get("keyword_top_k", 2)):
+        found.append(make_evidence(doc, doc.id, "docs", None, "용어 일치"))
     for doc, sc in _scored(doc_store, question, cfg["top_k"], cfg, where, cfg.get("min_relevance", 0)):
-        found.append(_evidence(doc, doc.id, "docs", sc, "유사도"))
+        found.append(make_evidence(doc, doc.id, "docs", sc, "유사도"))
 
     seen_ids, seen_text, merged = set(), set(), []
     for ev in found:
