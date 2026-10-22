@@ -15,7 +15,7 @@ from src.data_prep.doc_collector import (
     select_candidates,
 )
 from src.data_prep.fss_loader import load_products
-from src.data_prep.glossary_loader import load_all_glossaries, load_pdf
+from src.data_prep.glossary_loader import is_index_page, load_all_glossaries, load_pdf
 from src.vectorstore.index_docs import chunk_records, index_glossaries, index_wiki, reset_wiki
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -125,6 +125,13 @@ def test_pdf_pages_keep_file_and_page(tmp_path):
     assert [r["doc_id"] for r in records] == ["bok800-p2"]  # 짧은 표지는 건너뜀
     assert records[0]["metadata"]["page"] == 2
     assert records[0]["metadata"]["source_file"] == path.name
+
+
+def test_index_pages_are_detected():
+    toc = "vii\n" + "\n".join(f"용어{i}· ·····························8 {i}" for i in range(8))
+    assert is_index_page(toc)
+    body = "담보인정비율(LTV)\n주택 가격 대비 대출 비율이다.\n 연관검색어   총부채상환비율"
+    assert not is_index_page(body)
 
 
 def test_chunk_ids_are_stable_and_split_long_text():

@@ -3,11 +3,13 @@
 - 파일은 data/raw/docs/ 에 받은 이름 그대로 둔다. 어떤 파일을 쓸지는 settings.yaml 의 docs 에 패턴으로 적는다.
 - 용어사전은 용어 1개 = 문서 1개 (doc_id = {출처키}-{용어 번호}). CSV 인코딩은 UTF-8/CP949 둘 다 읽는다.
 - PDF는 페이지 1장 = 문서 1개 (doc_id = {출처키}-p{쪽}). 원문 위치는 파일명과 쪽 번호로 남긴다.
+  목차·찾아보기 쪽(용어 ····· 쪽번호 줄이 많은 쪽)은 용어 이름만 늘어놓아 검색만 흐리므로 뺀다.
 - 모두 특정 상품이 아닌 공통 문서(product_id=common)이고, 출처 종류는 doc_type 으로 구분한다.
 """
 
 import csv
 import logging
+import re
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -69,6 +71,14 @@ def load_glossary(path: Path, src: dict) -> list[dict]:
     return records
 
 
+_LEADER_LINE = re.compile(r"[·.…ㆍ‧∙・]{4,}\s*[\d\s]+$")
+
+
+def is_index_page(text: str, min_lines: int = 5) -> bool:
+    """'납부자자동이체 ······ 84' 같은 목차 줄이 min_lines 개 이상이면 목차 쪽"""
+    return sum(1 for line in text.splitlines() if _LEADER_LINE.search(line.strip())) >= min_lines
+
+
 def load_pdf(path: Path, src: dict) -> list[dict]:
     """src: settings 의 pdf 항목 (key, doc_type, name, url, skip_pages)"""
     reader = PdfReader(str(path))
@@ -77,7 +87,7 @@ def load_pdf(path: Path, src: dict) -> list[dict]:
         if page_no <= src.get("skip_pages", 0):
             continue
         text = (page.extract_text() or "").strip()
-        if len(text) < 30:  # 빈 쪽, 간지
+        if len(text) < 30 or is_index_page(text):  # 빈 쪽, 간지, 목차
             continue
         records.append(
             {
