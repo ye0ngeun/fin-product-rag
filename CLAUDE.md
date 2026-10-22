@@ -9,7 +9,7 @@ AI 코딩 도구(Claude Code 등)와 사람이 함께 따르는 규칙입니다.
 1. **금리·한도·상환액 숫자를 LLM이 만들지 않는다.** 공시값은 메타데이터 그대로 쓰고, 상환액·비율은 `src/services/loan_calc.py`가 계산한다. 근거에 없는 내용은 "확인되지 않습니다".
 2. **`[근거 n]`과 출처 목록이 1:1로 맞아야 한다.** 인용된 근거만 출처로 표시한다 (`src/rag/graph.py`).
 3. **모든 화면에 면책 문구와 금감원 출처 문구**("금융상품통합비교공시시스템(금융감독원) 금융회사 상품정보", 약관 제9조 4항)를 둔다. `src/ui/common.py::disclaimers`, `tests/test_app.py`가 확인한다.
-4. **키는 `.env`에만.** `.env.example`은 빈 값. `data/raw/`, `chroma_db/`, 금감원 공시값이 든 결과 파일은 커밋·재배포하지 않는다 (`sources.md` 3-1).
+4. **키는 `.env`에만.** `.env.example`은 빈 값. `data/raw/`, `chroma_db/`, 금감원 공시값이 든 결과 파일은 커밋·재배포하지 않는다 (`sources.md` 3-1). 예외: README 소개용 화면 캡처 4장(`docs/images/`)은 영은 확인 후 올린다(출처 문구가 보이게).
 5. **이용 조건을 확인한 출처만 색인한다.** 새 출처는 `sources.md` 표에 먼저 적는다.
 6. **설정 값(청크·Top-k·검색 방식·호출 간격)은 `config/settings.yaml`, 프롬프트는 `src/rag/prompts.py`에만** 둔다.
 7. **버전 고정** (`requirements.txt`): LangChain 1.3.14, LangGraph 1.2.10, langchain-openai 1.4.3, langchain-chroma 1.1.0, ChromaDB 1.5.9, OpenAI 2.54.0, Streamlit 1.62.0. LLM·임베딩은 SSAFY GMS.
