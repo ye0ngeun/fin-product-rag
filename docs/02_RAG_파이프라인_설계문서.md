@@ -33,15 +33,15 @@ LangGraph 그래프는 `retrieve` → `generate` 두 노드입니다 ([`src/rag/
 
 텍스트 구성 이유: 사용자는 "금리 4% 이하 고정금리", "중도상환수수료 없는", "비대면 가입" 처럼 금리·상환·수수료·가입 방법으로 상품을 찾습니다. 그래서 공시 항목을 빠짐없이 텍스트에 넣고, 숫자 조건(금리)과 범주 조건(유형·권역·상환방식)은 메타데이터로도 넣어 코드가 정확히 거르게 했습니다.
 
-### `loan_docs` — 외부 문서 (약 4,900청크)
+### `loan_docs` — 외부 문서 (약 5,000청크)
 
 | 출처 (`doc_type`) | 단위 | 청크 수(영은 PC) | 원문 위치 메타데이터 |
 | :--- | :--- | ---: | :--- |
-| 위키백과 (`wiki`) | 문서 1개 → 1,000자 청크 | 69 | `source_url`(문서 URL), `license`, `query`(검색어) |
+| 위키백과 (`wiki`) | 문서 1개 → 1,000자 청크 | 질문 때 늘어남 (2026-10-22 약 240) | `source_url`(문서 URL), `license`, `query`(검색어) |
 | 주택금융공사 단어사전 (`glossary_hf`) | 용어 1개 = 문서 1개 (설명 20자 미만 제외) | 1,821 | `source_url`(데이터 페이지), `source_file` |
 | 우체국예금보험 금융용어사전 (`glossary_epost`) | 용어 1개 = 문서 1개 | 1,197 | 같음 |
 | 우체국 챗봇 금융용어 사전 (`glossary_epost_chatbot`) | 용어 1개 = 문서 1개 | 1,038 | 같음 |
-| 한은 경제금융용어 800선 (`glossary_bok`) | PDF 1쪽 = 문서 1개 (목차·빈 쪽 제외) | 763 | `source_file`, `page` |
+| 한은 경제금융용어 800선 (`glossary_bok`) | PDF 1쪽 = 문서 1개 (목차·빈 쪽 제외) | 710 | `source_file`, `page` |
 
 - 공통 메타데이터: `product_id`, `doc_type`, `doc_id`, `chunk_seq`, `title`, `source`, `source_url`.
 - 청크 ID: `{product_id}:{doc_id}:{순번}` (예: `common:wiki-12345:0`, `common:hf-W0001:0`, `common:bok800-p408:0`).

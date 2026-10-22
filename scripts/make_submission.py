@@ -2,7 +2,7 @@
 
 넣는 것
 - git 이 관리하는 파일 전부 (소스, docs/, README.md, sources.md, 설정, 테스트)
-- docs/screenshots/ 의 이미지 (git 제외 폴더)
+- docs/screenshots/ 의 화면 캡처와 명령 출력 txt (git 제외 폴더)
 - data/processed/eval/*.md -> 검증결과/ (RAG 전후 비교, 검색 비교. 금감원 공시값이 있어 git 에서 뺀 파일)
 
 넣지 않는 것: .env, data/raw, chroma_db, 그 밖의 git 제외 파일.
@@ -53,7 +53,7 @@ def main() -> None:
     args = parser.parse_args()
 
     entries: list[tuple[Path, str]] = [(p, p.relative_to(ROOT).as_posix()) for p in tracked_files()]
-    shots = sorted(p for p in SCREENSHOT_DIR.glob("*") if p.suffix.lower() in IMAGE_EXT)
+    shots = sorted(p for p in SCREENSHOT_DIR.glob("*") if p.is_file() and p.name != ".gitkeep")
     entries += [(p, p.relative_to(ROOT).as_posix()) for p in shots]
     evals = sorted(EVAL_DIR.glob("*.md"))
     entries += [(p, f"검증결과/{p.name}") for p in evals]
