@@ -1,9 +1,53 @@
-# fin-product-rag
+# 《불빛 하나》 — 대출상품 RAG 길잡이 (fin-product-rag)
 
-대출 상품(주택담보·전세자금·개인신용) 정보를 근거로 답하는 RAG 서비스입니다. (SSAFY AI 코어 프로젝트 2회차)
+서울 야경 위에서 내집마련 대출을 시뮬레이션하고, 대출 상품(주택담보·전세자금·개인신용)의 조건과 용어를 근거와 함께 설명하는 RAG 서비스입니다. (SSAFY AI 코어 프로젝트 2회차)
 
 > 본 서비스는 정보 제공용이며 금융 전문가의 조언을 대신하지 않습니다.
 > 상품 정보는 금융상품통합비교공시시스템(금융감독원) 금융회사 상품정보를 사용한 결과이며, 금융감독원은 정보의 정확성·최신성을 보증하지 않습니다.
+
+## 제출 문서
+
+| 문서 | 내용 |
+| :--- | :--- |
+| [요구사항 정의서](docs/01_요구사항정의서.md) | 도메인과 조건 충족 근거, 기능·비기능 요구사항 표(F2001~F2016, NF2001~NF2007) |
+| [RAG 파이프라인 설계문서](docs/02_RAG_파이프라인_설계문서.md) | 컬렉션·메타데이터, 수집·청킹·색인, 병합·중복 제거, 프롬프트, 설정 값과 이유, 근거 표시, 특화 기능, 겪은 문제와 해결 |
+| [검증 결과](docs/03_검증결과.md) | 요구사항 대조표, 테스트 결과표, 셀프·상호 체크리스트, MMR·RAG 전후 비교, 제출 전 점검 |
+| [출처와 이용 조건](sources.md) | 데이터·문서 출처, 라이선스, 금감원 이용약관 요점 |
+
+## 기능 요약
+
+| 구분 | 번호 | 기능 |
+| :--- | :--- | :--- |
+| 필수 | F2001~F2002 | 금감원 대출상품 285건을 상품 1건 = 텍스트 1개로 `loan_meta` 에 색인 |
+| 필수 | F2003~F2005 | 프롬프트1 검색어 추출 → 위키 검색 → 프롬프트2 선별 → 수집(캐시), 용어사전 CSV 3종·한은 800선 PDF와 함께 `loan_docs` 에 색인 |
+| 필수 | F2006~F2008 | LangGraph retrieve → generate, 두 컬렉션 병합·중복 제거, `[근거 n]` 인용 답변, 인용된 근거만 출처 표시 |
+| 필수 | F2009~F2012 | Streamlit 화면: 상품 선택·길잡이 대화, 대출 계획·한 달 살아보기·상품 비교(특화), 자연어 조건 탐색, 진행 상태·오류·면책 안내 |
+| 심화 | F2014 | MMR 검색 (문턱 통과 후보 20개 중 λ=0.7), 유사도 검색과 비교 스크립트 |
+| 심화 | F2015 | RAG 전후 답변 비교: 대표 질문 6개, 자동 점검 RAG 없이 3/6 → RAG 5/6 |
+| 심화 | F2016 | 위키(웹)·CSV 사전 3종·PDF 출처 결합, 근거에 출처 종류 표시 |
+| 심화 | F2013 | HTML/JS 야경 화면: 선택하지 않음 |
+
+## 데이터 준비와 색인 순서 (요약)
+
+1. `.env` 에 키 넣기 (`OPENAI_API_KEY`, `OPENAI_BASE_URL`(GMS), `FSS_API_KEY`, `WIKI_USER_AGENT`, `MOLIT_API_KEY`)
+2. 금감원 상품 수집: `python -m src.data_prep.fss_collector`
+3. 상품 색인: `python -m src.vectorstore.index_meta`
+4. 용어사전·PDF를 `data/raw/docs/` 에 두고 색인: `python -m src.vectorstore.index_docs --glossary`
+5. (선택) 위키 미리 수집: `python -m src.vectorstore.index_docs --seed 2` — 길잡이에서 질문할 때도 자동으로 모읍니다
+6. (선택) 실거래 사례: 법정동코드 CSV를 `data/raw/codes/` 에 두고 `python -m src.data_prep.molit_collector`
+7. 화면: `streamlit run app.py`
+
+자세한 설명은 아래 각 절에 있습니다.
+
+## 제출 zip 만들기
+
+스크린샷을 `docs/screenshots/` 에 `s01.png` … 이름으로 넣고(목록은 [검증 결과](docs/03_검증결과.md) 부록), `rag_compare`·`search_compare` 결과가 `data/processed/eval/` 에 있는 상태에서 실행합니다.
+
+```bash
+python scripts/make_submission.py --region 서울 --cls 1 --name 홍길동
+```
+
+git 이 관리하는 파일, 스크린샷, 비교 결과(`검증결과/`)를 `AI코어프로젝트2_불빛하나_지역_반_성명.zip` 으로 묶습니다. `.env`, `data/raw`, `chroma_db` 는 넣지 않고, `.env` 의 값이 들어간 파일이 있으면 멈춥니다.
 
 ## 구조
 
@@ -20,6 +64,8 @@ src/
   ui/                   화면 구성 요소 (사이드바, 대출 계획·한 달 살아보기, 찾기·비교, 길잡이)
 data/raw, data/processed  수집·가공 데이터 (git 제외)
 sources.md              데이터 계획, 출처와 이용 조건
+docs/                   제출 문서 (요구사항 정의서, RAG 설계문서, 검증 결과), screenshots/
+scripts/                제출 zip 만들기
 ```
 
 ## 화면 안내 문구 (F2012, 금감원 이용약관 제9조 4항)

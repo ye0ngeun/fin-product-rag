@@ -21,3 +21,8 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# 제출물: 스크린샷은 금감원 공시값이 보여 git 에 올리지 않고 zip 에만 넣는다
+docs/screenshots/*
+!docs/screenshots/.gitkeep
+AI코어프로젝트2_*.zip
