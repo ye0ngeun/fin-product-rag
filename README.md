@@ -45,4 +45,4 @@ python -m pytest -q                                  # 테스트 (네트워크·
 옵션과 확인 방법은 [실행 가이드](docs/05_실행가이드.md), 제출 zip은 `python scripts/make_submission.py --region … --cls … --name …`.
 
 ## 📚 문서
-[요구사항 정의서](docs/01_요구사항정의서.md) · [RAG 설계](docs/02_RAG_파이프라인_설계문서.md) · [검증 결과](docs/03_검증결과.md) · [구현 매핑](docs/04_요구사항_구현매핑.md) · [실행 가이드](docs/05_실행가이드.md) · [출처·이용 조건](sources.md) · [작업 규칙](CLAUDE.md)
+[요구사항 정의서](docs/01_요구사항정의서.md) · [RAG 설계](docs/02_RAG_파이프라인_설계문서.md) · [검증 결과](docs/03_검증결과.md) · [구현 매핑](docs/04_요구사항_구현매핑.md) · [실행 가이드](docs/05_실행가이드.md) · [트러블슈팅](docs/06_트러블슈팅.md) · [출처·이용 조건](sources.md) · [작업 규칙](CLAUDE.md)
