@@ -14,6 +14,8 @@ def get_chat_model() -> BaseChatModel:
     return ChatOpenAI(
         model=settings["llm"]["chat_model"],
         temperature=settings["llm"]["temperature"],
+        max_retries=settings["llm"].get("max_retries", 2),
+        timeout=settings["llm"].get("timeout_sec"),
         api_key=get_env("OPENAI_API_KEY"),
         base_url=get_env("OPENAI_BASE_URL", required=False),
     )

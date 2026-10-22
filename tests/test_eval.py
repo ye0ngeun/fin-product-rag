@@ -85,3 +85,22 @@ def test_run_item_and_report(stores):
     md = to_markdown([row], "test-model")
     assert "| 자동 점검 맞음 | 0/1 | 1/1 |" in md and "| 근거 제시(출처 있는 답변) | 0/1 | 1/1 |" in md
     assert "> 최저 3.52%입니다 [근거 1]." in md
+
+
+def test_retrieve_embeds_question_once_even_with_mmr(stores):
+    """두 컬렉션 검색과 MMR 이 질문 임베딩 하나를 같이 쓴다 (GMS 호출 수·일시 오류 기회 줄이기)"""
+    from src.rag.retriever import retrieve
+
+    class Counting(DeterministicFakeEmbedding):
+        calls: int = 0
+
+        def embed_query(self, text):
+            self.calls += 1
+            return super().embed_query(text)
+
+    tmp, _, _ = stores
+    emb = Counting(size=16)
+    vs = get_settings()["vectorstore"]
+    meta, docs = get_store(vs["meta_collection"], emb, tmp), get_store(vs["doc_collection"], emb, tmp)
+    retrieve("LTV가 뭐야?", meta, docs, {**NO_THRESHOLD, "search_type": "mmr"})
+    assert emb.calls == 1

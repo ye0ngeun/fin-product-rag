@@ -27,13 +27,19 @@ DOC_TYPE_LABELS = {
 }
 
 
-def _scored(store: Chroma, query: str, k: int, cfg: dict, where: dict | None, min_score: float) -> list[tuple]:
-    """(문서, 관련도) 목록. 관련도(코사인 유사도) min_score 미만, 그리고 1등보다 relative_margin 이상 낮은 것은 뺀다."""
+def _scored(store: Chroma, query_vec: list[float], k: int, cfg: dict, where: dict | None, min_score: float) -> list[tuple]:
+    """(문서, 관련도) 목록. 관련도(코사인 유사도) min_score 미만, 그리고 1등보다 relative_margin 이상 낮은 것은 뺀다.
+
+    질문 임베딩(query_vec)은 retrieve 에서 한 번만 만들어 두 컬렉션·MMR 이 같이 쓴다. (임베딩 API 호출 수 줄이기)
+    """
     if k <= 0:
         return []
     fetch_k = max(cfg.get("mmr_fetch_k", 20), k) if cfg.get("search_type") == "mmr" else k * 2
     # 컬렉션은 cosine 거리(hnsw:space=cosine)라 관련도 = 1 - 거리
-    scored = [(d, 1 - dist) for d, dist in store.similarity_search_with_score(query, k=fetch_k, filter=where)]
+    scored = [
+        (d, 1 - dist)
+        for d, dist in store.similarity_search_by_vector_with_relevance_scores(query_vec, k=fetch_k, filter=where)
+    ]
     if not scored:
         return []
     best = scored[0][1]
@@ -41,8 +47,8 @@ def _scored(store: Chroma, query: str, k: int, cfg: dict, where: dict | None, mi
     scored = [(d, sc) for d, sc in scored if sc >= min_score and (margin is None or sc >= best - margin)]
     if cfg.get("search_type") == "mmr" and scored:
         keep = {d.id: sc for d, sc in scored}
-        picked = store.max_marginal_relevance_search(
-            query, k=k, fetch_k=fetch_k, lambda_mult=cfg.get("mmr_lambda", 0.5), filter=where
+        picked = store.max_marginal_relevance_search_by_vector(
+            query_vec, k=k, fetch_k=fetch_k, lambda_mult=cfg.get("mmr_lambda", 0.5), filter=where
         )
         return [(d, keep[d.id]) for d in picked if d.id in keep]
     return scored[:k]
@@ -128,6 +134,7 @@ def retrieve(
 ) -> list[dict]:
     """번호(n)가 붙은 근거 목록. 메타 근거가 앞, 외부 문서가 뒤."""
     found: list[dict] = []
+    query_vec = doc_store.embeddings.embed_query(question)
     if product_id:
         got = meta_store.get(ids=[product_id])
         if got["ids"]:
@@ -136,13 +143,13 @@ def retrieve(
         where = {"product_id": {"$in": ["common", product_id]}}
     else:
         # 상품을 고르지 않은 용어 질문에서 상관없는 상품이 끼지 않도록 메타는 더 높은 관련도를 요구한다.
-        for doc, sc in _scored(meta_store, question, cfg.get("meta_top_k", 3), cfg, None, cfg.get("meta_min_relevance", 0)):
+        for doc, sc in _scored(meta_store, query_vec, cfg.get("meta_top_k", 3), cfg, None, cfg.get("meta_min_relevance", 0)):
             found.append(make_evidence(doc, doc.id, "meta", sc, "유사도"))
         where = None
 
     for doc in keyword_hits(doc_store, question, where, cfg.get("keyword_top_k", 2)):
         found.append(make_evidence(doc, doc.id, "docs", None, "용어 일치"))
-    for doc, sc in _scored(doc_store, question, cfg["top_k"], cfg, where, cfg.get("min_relevance", 0)):
+    for doc, sc in _scored(doc_store, query_vec, cfg["top_k"], cfg, where, cfg.get("min_relevance", 0)):
         found.append(make_evidence(doc, doc.id, "docs", sc, "유사도"))
 
     seen_ids, seen_text, merged = set(), set(), []
