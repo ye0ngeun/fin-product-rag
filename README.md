@@ -22,7 +22,7 @@
 app.py           Streamlit 진입점
 config/          실행 설정(청크·Top-k·검색 방식), 평가 질문
 src/data_prep/   금감원·위키·용어사전·실거래 수집
-src/vectorstore/ loan_meta(상품 285건) · loan_docs(문서 약 4,900청크) 색인
+src/vectorstore/ loan_meta(상품 285건) · loan_docs(문서 약 5,000청크) 색인
 src/rag/         LangGraph retrieve → generate, 프롬프트
 src/services/    상환액·불빛 계산, 비교, 조건 탐색
 src/ui/          화면 구성 요소
