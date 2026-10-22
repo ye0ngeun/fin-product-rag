@@ -135,3 +135,10 @@ def test_guide_wiki_failure_falls_back_to_indexed_docs(chroma_dir):
     result = guide.ask("LTV가 뭐야?", PID, use_wiki=True)
     assert "외부 문서를 가져오지 못해" in result["wiki"]["error"]
     assert result["answer"] == "답 [근거 1]"
+
+
+def test_guide_ask_with_mmr_search(chroma_dir):
+    guide = _guide(chroma_dir, ["답 [근거 1]"])
+    assert set(guide.graphs) == {"similarity", "mmr"}
+    result = guide.ask("LTV가 뭐야?", PID, use_wiki=False, search_type="mmr")
+    assert result["evidence"][0]["id"] == PID and result["answer"] == "답 [근거 1]"

@@ -1,0 +1,39 @@
+# 검증용 대표 질문 (F2014 검색 비교, F2015 RAG 전후 비교)
+# 근거 없이 답하면 틀리기 쉬운 질문으로 골랐다: 특정 상품의 공시값, 용어 뜻, 문서로 알 수 없는 질문.
+#
+# kind
+#   fact     특정 상품의 공시값. check 에 적힌 값이 답변에 있으면 맞음
+#              check.meta: loan_meta 메타데이터 필드 (rate_min 등, 소수 둘째 자리 %로 비교)
+#              check.field: 상품 텍스트의 줄 이름 (한도, 중도상환수수료, 연체 이자율, 부대비용) -> 그 줄의 숫자
+#   concept  용어 뜻. keywords 가 모두 답변에 있으면 맞음
+#   unknown  문서로 알 수 없는 질문. "확인되지 않습니다"로 답하면 맞음
+# product_id 는 길잡이에서 그 상품을 고르고 묻는 것과 같다. RAG 없이 물을 때는 질문 글만 쓴다.
+
+questions:
+  - id: q1
+    question: 우리은행 우리아파트론의 중도상환수수료는 어떻게 돼?
+    product_id: mortgage:0010001:1054
+    kind: fact
+    check: {field: 중도상환수수료}
+  - id: q2
+    question: 우리은행 우리아파트론의 최저 금리는 몇 %야?
+    product_id: mortgage:0010001:1054
+    kind: fact
+    check: {meta: rate_min}
+  - id: q3
+    question: 우리은행 우리전세론(주택금융보증)의 연체 이자율은?
+    product_id: rent_house:0010001:10561
+    kind: fact
+    check: {field: 연체 이자율}
+  - id: q4
+    question: LTV가 뭐야?
+    kind: concept
+    keywords: [담보, 비율]
+  - id: q5
+    question: 원리금균등상환이 뭐야?
+    kind: concept
+    keywords: [원금, 이자]
+  - id: q6
+    question: 우리아파트론 금리는 다음 달에 오를까?
+    product_id: mortgage:0010001:1054
+    kind: unknown
