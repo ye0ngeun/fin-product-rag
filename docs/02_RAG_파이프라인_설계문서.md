@@ -1,6 +1,6 @@
 # RAG 파이프라인 설계문서 — 《불빛 하나》
 
-[README](../README.md) · [요구사항 정의서](01_요구사항정의서.md) · **RAG 설계문서** · [검증 결과](03_검증결과.md) · [구현 매핑](04_요구사항_구현매핑.md) · [출처](../sources.md)
+[README](../README.md) · [요구사항 정의서](01_요구사항정의서.md) · **RAG 설계문서** · [검증 결과](03_검증결과.md) · [구현 매핑](04_요구사항_구현매핑.md) · [실행 가이드](05_실행가이드.md) · [출처](../sources.md)
 
 설정 값은 모두 [`config/settings.yaml`](../config/settings.yaml), 프롬프트는 [`src/rag/prompts.py`](../src/rag/prompts.py) 에 있습니다.
 
