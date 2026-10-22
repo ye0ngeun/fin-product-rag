@@ -113,6 +113,10 @@ def to_markdown(rows: list[dict], model: str) -> str:
             "",
             f"## {r['id']}. {r['question']}" + (f" (상품 {r['product_id']})" if r.get("product_id") else ""),
             "",
+        ]
+        if r.get("note"):
+            out += [f"**참고(한계)**: {r['note']}", ""]
+        out += [
             f"**RAG 없이** — 자동 점검: {r['baseline_judge']}",
             "",
             _quote(r["baseline"]),

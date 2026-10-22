@@ -85,6 +85,7 @@ def test_run_item_and_report(stores):
     md = to_markdown([row], "test-model")
     assert "| 자동 점검 맞음 | 0/1 | 1/1 |" in md and "| 근거 제시(출처 있는 답변) | 0/1 | 1/1 |" in md
     assert "> 최저 3.52%입니다 [근거 1]." in md
+    assert "참고(한계)" in to_markdown([{**row, "note": "근거 문서 없음"}], "m") and "참고(한계)" not in md
 
 
 def test_retrieve_embeds_question_once_even_with_mmr(stores):
