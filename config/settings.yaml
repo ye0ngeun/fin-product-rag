@@ -94,7 +94,10 @@ chunking:
   chunk_overlap: 200
 
 retrieval:
+  # loan_docs 에서 가져올 근거 수 (F2006)
   top_k: 5
+  # 상품을 고르지 않았을 때 loan_meta 에서 가져올 상품 수
+  meta_top_k: 3
   # similarity | mmr (F2014)
   search_type: similarity
   mmr_fetch_k: 20
