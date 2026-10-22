@@ -6,6 +6,8 @@
 - 관련도(코사인 유사도)가 min_relevance 미만이거나 1등보다 relative_margin 이상 낮은 근거는 버린다.
   상품을 고르지 않았을 때 loan_meta 는 meta_min_relevance 를 넘는 상품만 넣는다.
 - 질문의 용어(LTV, 담보인정비율 등)와 제목이 같은 용어사전 항목은 유사도와 상관없이 keyword_top_k 개까지 먼저 넣는다.
+  약어는 항목 첫 줄(용어 줄)에 '(LTV)'가 있는 용어 1개 = 문서 1개 사전(SHORT_GLOSSARIES)만 본다.
+  800선 PDF는 한 쪽에 용어가 여러 개라 본문 어딘가에 약어가 있다고 그 쪽이 답이 되지는 않는다.
 - 검색 방식(similarity/mmr)과 개수는 settings.yaml 의 retrieval 에서 바꾼다.
 - 같은 청크 ID, 또는 내용이 같은 청크(여러 용어사전에 같은 설명)는 한 번만 남긴다.
 """
@@ -67,6 +69,10 @@ def question_terms(question: str) -> list[str]:
     return list(dict.fromkeys(terms))
 
 
+# 용어 1개 = 문서 1개인 사전. 약어 일치는 이 사전들의 첫 줄에서만 찾는다.
+SHORT_GLOSSARIES = ["glossary_hf", "glossary_epost", "glossary_epost_chatbot"]
+
+
 def _keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) -> list[Document]:
     """용어사전에서 제목이 질문 용어와 같거나, 본문 첫 줄에 '(약어)'가 있는 항목"""
     hits: list[Document] = []
@@ -75,10 +81,19 @@ def _keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) 
         if where:
             conds.append(where)
         got = store.get(where={"$and": conds}, limit=limit)
-        if not got["ids"] and re.fullmatch(r"[A-Z]{2,}", term):
-            got = store.get(where=where, where_document={"$contains": f"({term})"}, limit=limit)
-        for i, doc_id in enumerate(got["ids"]):
-            hits.append(Document(id=doc_id, page_content=got["documents"][i], metadata=got["metadatas"][i]))
+        docs = [Document(id=i, page_content=t, metadata=m) for i, t, m in zip(got["ids"], got["documents"], got["metadatas"])]
+        if not docs and re.fullmatch(r"[A-Z]{2,}", term):
+            short = {"doc_type": {"$in": SHORT_GLOSSARIES}}
+            # 본문에만 약어가 나오는 항목도 걸리므로 넉넉히 받아 첫 줄로 거른다
+            got = store.get(
+                where={"$and": [short, where]} if where else short, where_document={"$contains": f"({term})"}, limit=50
+            )
+            docs = [
+                Document(id=i, page_content=t, metadata=m)
+                for i, t, m in zip(got["ids"], got["documents"], got["metadatas"])
+                if f"({term})" in t.split("\n", 1)[0]
+            ][:limit]
+        hits.extend(docs)
         if len(hits) >= limit:
             break
     return hits[:limit]

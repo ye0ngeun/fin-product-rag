@@ -12,6 +12,7 @@ from src.rag.graph import NO_CITATION_NOTICE, NOT_FOUND, build_graph, cited_numb
 from src.rag.retriever import question_terms
 from src.vectorstore.index_docs import index_glossaries
 from src.vectorstore.index_meta import index_meta
+from src.vectorstore.store import get_store
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PID = "mortgage:0010001:1054"
@@ -102,6 +103,21 @@ def test_keyword_hit_finds_glossary_by_acronym_and_title(chroma_dir):
     assert [e["title"] for e in ev] == ["담보인정비율"] and ev[0]["how"] == "용어 일치"
     ev = _app(chroma_dir, ["x"], cfg).invoke({"question": "고정금리란?", "product_id": None})["evidence"]
     assert [e["title"] for e in ev] == ["고정금리"]
+
+
+def test_acronym_hit_skips_pdf_pages_and_body_mentions(chroma_dir):
+    store = get_store(get_settings()["vectorstore"]["doc_collection"], DeterministicFakeEmbedding(size=16), chroma_dir)
+    store.add_texts(
+        ["노동비용\n단위노동비용 ... 주택담보대출비율(LTV) 규제", "총부채상환비율\n소득 대비 상환액. 담보인정비율(LTV)과 함께 쓴다."],
+        metadatas=[
+            {"product_id": "common", "doc_type": "glossary_bok", "title": "800선 108쪽"},
+            {"product_id": "common", "doc_type": "glossary_hf", "title": "총부채상환비율"},
+        ],
+        ids=["common:bok800-p108:0", "common:hf-X:0"],
+    )
+    cfg = {**NO_THRESHOLD, "min_relevance": 1.01, "meta_min_relevance": 1.01}
+    ev = _app(chroma_dir, ["x"], cfg).invoke({"question": "LTV가 뭐야?", "product_id": None})["evidence"]
+    assert [e["title"] for e in ev] == ["담보인정비율"]
 
 
 def test_question_terms():
