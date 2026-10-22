@@ -112,4 +112,4 @@ retrieval:
   # similarity | mmr (F2014)
   search_type: similarity
   mmr_fetch_k: 20
-  mmr_lambda: 0.5
+  mmr_lambda: 0.7       # 1에 가까울수록 관련도, 0에 가까울수록 다양성
