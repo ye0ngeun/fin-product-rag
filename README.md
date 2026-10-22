@@ -17,6 +17,15 @@
 
 숫자(금리·상환액)는 코드가 공시값으로 계산하고, LLM은 설명과 요약만 씁니다.
 
+## 📸 화면
+| 대출 계획 | 상품 찾기 |
+|---|---|
+| ![대출 계획](docs/screenshots/s12_대출계획.png) | ![상품 찾기](docs/screenshots/s15b_상품찾기_결과카드.png) |
+| **상품 비교** | **길잡이** |
+| ![상품 비교](docs/screenshots/s14_상품비교.png) | ![길잡이](docs/screenshots/s08_길잡이_답변근거.png) |
+
+캡처에는 금감원 공시값이 보여서 git에는 올리지 않고 제출 zip에만 넣습니다(약관 제9조 3항, [sources.md](sources.md) 3-1). 그래서 GitHub에서는 이미지가 보이지 않고, zip을 풀면 보입니다. 전체 목록은 [검증 결과](docs/03_검증결과.md) 부록에 있습니다.
+
 ## 🧱 구조
 ```
 app.py           Streamlit 진입점
