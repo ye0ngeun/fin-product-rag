@@ -17,14 +17,15 @@ from src.rag.retriever import retrieve
 from src.vectorstore.store import get_embeddings, get_store
 
 
-def make_app(llm=None, embeddings=None, persist_dir=None):
+def make_app(llm=None, embeddings=None, persist_dir=None, retrieval_cfg=None):
     settings = get_settings()
+    retrieval_cfg = retrieval_cfg or settings["retrieval"]
     embeddings = embeddings or get_embeddings()
     meta_store = get_store(settings["vectorstore"]["meta_collection"], embeddings=embeddings, persist_dir=persist_dir)
     doc_store = get_store(settings["vectorstore"]["doc_collection"], embeddings=embeddings, persist_dir=persist_dir)
 
     def retrieve_fn(question, product_id):
-        return retrieve(question, meta_store, doc_store, settings["retrieval"], product_id=product_id)
+        return retrieve(question, meta_store, doc_store, retrieval_cfg, product_id=product_id)
 
     return build_graph(retrieve_fn, llm or get_chat_model())
 
@@ -46,7 +47,8 @@ def main() -> None:
 
     print(f"== 검색된 근거 {len(result['evidence'])}개 ==")
     for ev in result["evidence"]:
-        print(f"[근거 {ev['n']}] {ev['label']} · {ev['title']} ({ev['id']})")
+        score = f"{ev['score']:.3f}" if ev.get("score") is not None else "-"
+        print(f"[근거 {ev['n']}] {ev['label']} · {ev['title']} ({ev['id']}) [{ev.get('how', '')} {score}]")
         if args.show_evidence:
             print("   " + ev["text"][:300].replace("\n", "\n   "))
     print(f"\n== 답변 ({elapsed:.1f}초) ==\n{result['answer']}")

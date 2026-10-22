@@ -121,9 +121,11 @@ def reset_wiki(embeddings=None, persist_dir=None) -> int:
     """위키 청크와 캐시를 지운다. 지운 청크 수를 돌려준다."""
     settings = get_settings()
     store = get_store(settings["vectorstore"]["doc_collection"], embeddings=embeddings, persist_dir=persist_dir)
+    before = store._collection.count()
     ids = store.get(where={"doc_type": "wiki"}, include=[])["ids"]
     if ids:
         store.delete(ids=ids)
+    print(f"loan_docs: {before}건 -> {store._collection.count()}건")
     cache_path = ROOT_DIR / settings["wiki"]["cache_file"]
     if cache_path.exists():
         cache_path.unlink()

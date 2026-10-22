@@ -108,6 +108,7 @@ python -m src.vectorstore.index_docs --seed 2     # 유형마다 상품 2개씩 
 LangGraph 그래프는 `retrieve` → `generate` 두 노드입니다 (`src/rag/graph.py`).
 
 - retrieve: 상품을 고르면 그 상품의 `loan_meta` 청크를 근거 1번으로 넣고, `loan_docs` 에서 공통 문서와 그 상품 문서 중 `retrieval.top_k` 개를 찾습니다. 상품을 고르지 않으면 `loan_meta` 에서 `meta_top_k` 개를 찾습니다. 같은 청크나 같은 내용은 한 번만 남기고 `[근거 n]` 번호를 붙입니다. 검색 방식(similarity/mmr)은 `retrieval.search_type`.
+- 잡음 줄이기: 관련도(코사인 유사도)가 `min_relevance` 미만이거나 1등보다 `relative_margin` 이상 낮은 근거는 버리고, 상품을 고르지 않았을 때 상품 정보는 `meta_min_relevance` 를 넘을 때만 넣습니다. 질문 용어(LTV, 담보인정비율 등)와 제목이 같은 용어사전 항목은 `keyword_top_k` 개까지 먼저 넣습니다. `--show-evidence` 로 근거별 점수와 찾은 방식(용어 일치/유사도)을 보고 값을 조정합니다.
 - generate: 프롬프트3은 근거만 써서 답하고 문장마다 `[근거 n]` 을 붙입니다. 근거로 답할 수 없으면 "제공된 문서에서 확인되지 않습니다."라고 답합니다.
 - 출처: 답변에 실제로 인용된 번호의 근거만 제목과 원문 위치(위키 URL, 사전 데이터 페이지, PDF 파일·쪽, 금감원 상품정보와 수집일)로 보여 줍니다. 인용이 없으면 "답변에 인용된 근거가 없습니다."를 표시합니다.
 
