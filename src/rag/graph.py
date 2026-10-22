@@ -20,6 +20,7 @@ NO_CITATION_NOTICE = "답변에 인용된 근거가 없습니다."
 class AnswerState(TypedDict, total=False):
     question: str
     product_id: str | None
+    history: list[dict]  # [{"role": "user"|"assistant", "content": ...}] 같은 상품의 이전 대화
     evidence: list[dict]
     answer: str
     sources: list[dict]
@@ -34,6 +35,17 @@ def cited_numbers(answer: str) -> list[int]:
             if int(n) not in nums:
                 nums.append(int(n))
     return nums
+
+
+HISTORY_TURNS = 4
+
+
+def format_history(history: list[dict] | None, turns: int = HISTORY_TURNS) -> str:
+    """최근 turns 번의 질문·답변. 없으면 '(없음)'"""
+    recent = (history or [])[-turns * 2 :]
+    if not recent:
+        return "(없음)"
+    return "\n".join(f"{'사용자' if m['role'] == 'user' else '길잡이'}: {m['content']}" for m in recent)
 
 
 def source_line(ev: dict) -> str:
@@ -55,7 +67,9 @@ def build_graph(retrieve_fn, llm: BaseChatModel):
         evidence = state.get("evidence", [])
         if not evidence:
             return {"answer": NOT_FOUND, "sources": [], "notice": NO_CITATION_NOTICE}
-        reply = llm.invoke(ANSWER_PROMPT.format_messages(question=state["question"], evidence=format_evidence(evidence)))
+        reply = llm.invoke(ANSWER_PROMPT.format_messages(
+                question=state["question"], evidence=format_evidence(evidence), history=format_history(state.get("history"))
+            ))
         answer = reply.content.strip()
         by_n = {ev["n"]: ev for ev in evidence}
         sources = [by_n[n] for n in cited_numbers(answer) if n in by_n]

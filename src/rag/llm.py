@@ -29,3 +29,15 @@ def parse_json_list(text: str) -> list:
     except json.JSONDecodeError:
         return []
     return value if isinstance(value, list) else []
+
+
+def parse_json_object(text: str) -> dict:
+    """모델 응답에서 JSON 객체 하나를 꺼낸다. 실패하면 빈 dict."""
+    match = re.search(r"\{.*\}", text or "", re.DOTALL)
+    if not match:
+        return {}
+    try:
+        value = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}

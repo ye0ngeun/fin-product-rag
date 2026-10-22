@@ -42,7 +42,8 @@ def chunk_records(records: list[dict], chunk_size: int, chunk_overlap: int) -> t
     return docs, ids
 
 
-def _index(records, settings, dry_run, stale_where=None, embeddings=None, persist_dir=None) -> dict:
+def index_records(records, settings, dry_run, stale_where=None, embeddings=None, persist_dir=None) -> dict:
+    """레코드를 청킹해 loan_docs 에 덮어쓴다. stale_where 범위에서 이번에 없는 청크는 지운다."""
     chunking = settings["chunking"]
     docs, ids = chunk_records(records, chunking["chunk_size"], chunking["chunk_overlap"])
     by_type = Counter(d.metadata["doc_type"] for d in docs)
@@ -68,7 +69,7 @@ def index_glossaries(dry_run=False, docs_dir=None, embeddings=None, persist_dir=
     for key, s in stats.items():
         print(f"[{key}] " + (f"파일 없음 ({docs_dir}/{s['missing']})" if "missing" in s else f"{s['file']}: {s['docs']}건"))
     loaded_types = [s["doc_type"] for s in stats.values() if "missing" not in s]
-    return _index(
+    return index_records(
         records,
         settings,
         dry_run,
@@ -111,7 +112,7 @@ def index_wiki(products, question=None, dry_run=False, llm=None, wiki=None, cach
         pages.extend(new_pages)
         logs.append(log)
 
-    result = _index(wiki_to_records(pages), settings, dry_run, embeddings=embeddings, persist_dir=persist_dir)
+    result = index_records(wiki_to_records(pages), settings, dry_run, embeddings=embeddings, persist_dir=persist_dir)
     if not dry_run:
         cache.save()  # 색인이 끝난 뒤에만 캐시에 남긴다
     return {**result, "pages": len(pages), "logs": logs}

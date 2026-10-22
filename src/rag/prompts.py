@@ -2,7 +2,9 @@
 
 프롬프트 1: 검색어 추출 (F2003)
 프롬프트 2: 후보 선별 (F2004)
-프롬프트 3: 답변 생성 (F2007, 이후 추가)
+프롬프트 3: 답변 생성 (F2007)
+프롬프트 4: 조건 해석 (F2011) — 자연어 조건을 검색 조건 JSON으로
+프롬프트 5: 조건 맞는 상품 고르기 (F2011)
 """
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -62,9 +64,45 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
             "  일부만 확인되면 확인된 부분만 답하고, 나머지는 \"문서에서 확인되지 않습니다\"라고 밝힌다.\n"
             "- 금감원 상품정보 근거는 질문이 그 상품의 조건을 물을 때만 인용한다. 용어의 뜻을 묻는 질문에 특정 상품을 예로 끌어오지 않는다.\n"
             "- 질문과 상관없는 근거는 쓰지 않는다.\n"
+            "- [이전 대화]는 질문이 무엇을 가리키는지 파악하는 데만 쓰고, 사실의 근거로 쓰지 않는다.\n"
             "- 특정 상품 가입을 권유하거나 개인 상황에 대한 판단을 내리지 않는다.\n"
             "- 한국어로 간결하게 답한다.",
         ),
-        ("human", "[질문]\n{question}\n\n[근거]\n{evidence}"),
+        ("human", "[이전 대화]\n{history}\n\n[질문]\n{question}\n\n[근거]\n{evidence}"),
+    ]
+)
+
+CONDITION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "당신은 한국 개인 대출상품 검색 도우미입니다. 사용자가 말한 대출 조건을 검색 조건으로 바꿉니다.\n"
+            "필드:\n"
+            '- loan_type: "mortgage"(주택담보·아파트담보), "rent_house"(전세자금), "credit"(신용·마이너스통장) 중 하나\n'
+            "- rate_max: 금리 상한 숫자(%). \"4% 이하\", \"4%대 미만\" -> 4.0\n"
+            '- rate_type: "고정" 또는 "변동"\n'
+            '- rpay_type: "분할" 또는 "만기일시"\n'
+            '- fin_grp: "은행", "저축은행", "보험", "여신전문" 중 하나\n'
+            "- company: 금융회사 이름 (예: 우리은행)\n"
+            "- query: 위 필드로 못 나타낸 나머지 조건을 짧게 (예: 비대면 가입, 마이너스한도)\n"
+            "말하지 않은 조건은 null 로 둔다. 추측해서 채우지 않는다.\n"
+            '출력은 JSON 객체 하나만 쓴다. 예: {{"loan_type": "mortgage", "rate_max": 4.0, "rate_type": "고정", '
+            '"rpay_type": null, "fin_grp": "은행", "company": null, "query": null}}',
+        ),
+        ("human", "{condition}"),
+    ]
+)
+
+PRODUCT_SELECTION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "당신은 한국 개인 대출상품 검색 도우미입니다.\n"
+            "후보 상품의 공시 정보를 보고 사용자의 조건에 맞는 상품만 고릅니다.\n"
+            "- 상품 정보에 적힌 내용만 보고 판단한다. 정보에 없으면 맞는다고 보지 않는다.\n"
+            "- 최대 {max_items}개, 조건에 더 잘 맞는 순서로.\n"
+            '출력은 JSON 배열 하나만 쓴다. 예: [{{"no": 2, "reason": "비대면 가입 가능"}}]. 맞는 상품이 없으면 [].',
+        ),
+        ("human", "[조건]\n{condition}\n\n[후보]\n{candidates}"),
     ]
 )

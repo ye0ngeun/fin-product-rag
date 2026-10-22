@@ -1,0 +1,3 @@
+[client]
+# 오류 추적을 화면에 내지 않는다 (NF2004)
+showErrorDetails = "none"
