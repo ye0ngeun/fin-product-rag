@@ -60,6 +60,8 @@ docs:
       url: https://www.data.go.kr/data/15160532/fileData.do
       pattern: "*주택금융공사*단어사전*.csv"
       columns: {id: 단어아이디, term: 단어명, en: 단어영문명, desc: 단어설명}
+      # '통신에 드는 비용' 같은 짧은 일반 낱말 설명은 검색 잡음이 되어 뺀다
+      min_desc_chars: 20
     - key: epost
       doc_type: glossary_epost
       name: 우체국예금보험 금융용어사전
@@ -98,6 +100,13 @@ retrieval:
   top_k: 5
   # 상품을 고르지 않았을 때 loan_meta 에서 가져올 상품 수
   meta_top_k: 3
+  # 이 관련도(코사인 유사도, 0~1)보다 낮은 근거는 버린다. --show-evidence 로 점수를 보고 조정
+  min_relevance: 0.3
+  meta_min_relevance: 0.45
+  # 1등 근거보다 이만큼 이상 점수가 낮으면 버린다 (비우면 사용 안 함)
+  relative_margin: 0.15
+  # 질문 용어와 제목이 같은 용어사전 항목을 먼저 넣을 최대 수
+  keyword_top_k: 2
   # similarity | mmr (F2014)
   search_type: similarity
   mmr_fetch_k: 20

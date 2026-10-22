@@ -6,8 +6,10 @@ import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
+from src.config import get_settings
 from src.rag.ask import make_app
 from src.rag.graph import NO_CITATION_NOTICE, NOT_FOUND, build_graph, cited_numbers, source_line
+from src.rag.retriever import question_terms
 from src.vectorstore.index_docs import index_glossaries
 from src.vectorstore.index_meta import index_meta
 
@@ -23,11 +25,16 @@ def chroma_dir(tmp_path):
     return tmp_path
 
 
-def _app(chroma_dir, replies):
+# 가짜 임베딩은 점수가 무작위라 관련도 문턱은 끈다 (문턱 동작은 test_relevance_threshold 에서 따로 본다)
+NO_THRESHOLD = {**get_settings()["retrieval"], "min_relevance": -1, "meta_min_relevance": -1, "relative_margin": None}
+
+
+def _app(chroma_dir, replies, cfg=None):
     return make_app(
         llm=FakeListChatModel(responses=replies),
         embeddings=DeterministicFakeEmbedding(size=16),
         persist_dir=chroma_dir,
+        retrieval_cfg=cfg or NO_THRESHOLD,
     )
 
 
@@ -81,3 +88,23 @@ def test_cited_numbers_and_source_line():
     assert source_line(pdf).endswith("800.pdf 12쪽")
     wiki = {"n": 1, "label": "위키백과", "title": "이자율", "source_url": "https://ko.wikipedia.org/wiki/이자율"}
     assert "https://ko.wikipedia.org" in source_line(wiki)
+
+
+def test_relevance_threshold_drops_low_scores(chroma_dir):
+    strict = {**NO_THRESHOLD, "min_relevance": 1.01, "meta_min_relevance": 1.01, "keyword_top_k": 0}
+    result = _app(chroma_dir, ["x"], strict).invoke({"question": "아무 말", "product_id": None})
+    assert result["evidence"] == [] and result["answer"] == NOT_FOUND
+
+
+def test_keyword_hit_finds_glossary_by_acronym_and_title(chroma_dir):
+    cfg = {**NO_THRESHOLD, "min_relevance": 1.01, "meta_min_relevance": 1.01}  # 유사도 검색은 막고 용어 일치만
+    ev = _app(chroma_dir, ["x"], cfg).invoke({"question": "LTV가 뭐야?", "product_id": None})["evidence"]
+    assert [e["title"] for e in ev] == ["담보인정비율"] and ev[0]["how"] == "용어 일치"
+    ev = _app(chroma_dir, ["x"], cfg).invoke({"question": "고정금리란?", "product_id": None})["evidence"]
+    assert [e["title"] for e in ev] == ["고정금리"]
+
+
+def test_question_terms():
+    assert question_terms("LTV가 뭐야?") == ["LTV"]
+    assert question_terms("중도상환수수료는 어떻게 계산돼?") == ["중도상환수수료", "계산돼"]
+    assert question_terms("dsr이란") == ["DSR"]

@@ -45,7 +45,7 @@ def load_glossary(path: Path, src: dict) -> list[dict]:
     records, seen = [], set()
     for i, row in enumerate(rows, start=1):
         term, desc = row.get(cols["term"], ""), row.get(cols["desc"], "")
-        if not term or not desc:
+        if not term or not desc or len(desc) < src.get("min_desc_chars", 0):
             continue
         entry_id = row.get(cols.get("id", ""), "") or str(i)
         if entry_id in seen:  # 번호가 겹치면 행 번호로 구분
