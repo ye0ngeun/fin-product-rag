@@ -16,6 +16,7 @@ MMR 설정은 settings.yaml 의 retrieval.mmr_fetch_k(후보 수), mmr_lambda(1�
 import argparse
 from pathlib import Path
 
+import openai
 import yaml
 
 from src.config import ROOT_DIR, get_settings
@@ -107,9 +108,14 @@ def main() -> None:
     doc_store = get_store(settings["vectorstore"]["doc_collection"], emb)
     items = load_questions() if args.questions else [{"question": args.question, "product_id": args.product}]
 
-    results = []
+    results, failed = [], []
     for item in items:
-        r = compare_search(item["question"], meta_store, doc_store, cfg, item.get("product_id"))
+        try:
+            r = compare_search(item["question"], meta_store, doc_store, cfg, item.get("product_id"))
+        except openai.APIError as e:  # 재시도 후에도 실패한 GMS 오류는 그 질문만 건너뛴다
+            failed.append(item["question"])
+            print(f"\n== {item['question']} ==\n임베딩 호출 실패({type(e).__name__}). 이 질문은 건너뜁니다.")
+            continue
         results.append(r)
         print(f"\n== {r['question']}" + (f" (상품 {r['product_id']})" if r["product_id"] else "") + " ==")
         for kind in ("similarity", "mmr"):
@@ -117,7 +123,9 @@ def main() -> None:
             for ev in r["runs"][kind]:
                 print("   " + _line(ev))
         print(f"유사도에만: {r['only_similarity'] or '없음'}\nMMR에만: {r['only_mmr'] or '없음'}")
-    if args.out:
+    if failed:
+        print(f"\n실패한 질문 {len(failed)}개: {failed}. GMS 일시 오류일 수 있으니 잠시 뒤 다시 실행하세요.")
+    if args.out and results:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(to_markdown(results, cfg), encoding="utf-8")
         print(f"\n저장: {args.out}")

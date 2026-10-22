@@ -85,3 +85,54 @@ def test_run_item_and_report(stores):
     md = to_markdown([row], "test-model")
     assert "| 자동 점검 맞음 | 0/1 | 1/1 |" in md and "| 근거 제시(출처 있는 답변) | 0/1 | 1/1 |" in md
     assert "> 최저 3.52%입니다 [근거 1]." in md
+
+
+def test_retrieve_embeds_question_once_even_with_mmr(stores):
+    """두 컬렉션 검색과 MMR 이 질문 임베딩 하나를 같이 쓴다 (GMS 호출 수·일시 오류 기회 줄이기)"""
+    from src.rag.retriever import retrieve
+
+    class Counting(DeterministicFakeEmbedding):
+        calls: int = 0
+
+        def embed_query(self, text):
+            self.calls += 1
+            return super().embed_query(text)
+
+    tmp, _, _ = stores
+    emb = Counting(size=16)
+    vs = get_settings()["vectorstore"]
+    meta, docs = get_store(vs["meta_collection"], emb, tmp), get_store(vs["doc_collection"], emb, tmp)
+    retrieve("LTV가 뭐야?", meta, docs, {**NO_THRESHOLD, "search_type": "mmr"})
+    assert emb.calls == 1
+
+
+def test_mmr_picks_k_among_candidates_that_pass_threshold(stores):
+    from src.rag.retriever import _scored
+
+    tmp, _, doc_store = stores
+    vec = doc_store.embeddings.embed_query("LTV 설명")
+    cfg = {**NO_THRESHOLD, "search_type": "mmr", "mmr_fetch_k": 20, "mmr_lambda": 0.7}
+    got = _scored(doc_store, vec, 3, cfg, None, -1)
+    assert len(got) == 3 and len({d.id for d, _ in got}) == 3
+    # 문턱을 세게 걸면 통과한 후보 안에서만 고른다
+    sim = _scored(doc_store, vec, 10, {**cfg, "search_type": "similarity"}, None, -1)
+    cut = sim[1][1]
+    got = _scored(doc_store, vec, 5, cfg, None, cut)
+    assert {d.id for d, _ in got} <= {d.id for d, sc in sim if sc >= cut}
+
+
+def test_keyword_hit_finds_similar_title(stores):
+    from src.rag.retriever import keyword_hits
+
+    _, _, doc_store = stores
+    doc_store.add_texts(
+        ["원리금균등분할상환\n매달 원금과 이자를 합친 같은 금액을 갚는 방식", "원리금\n원금과 이자"],
+        metadatas=[
+            {"product_id": "common", "doc_type": "glossary_hf", "title": "원리금균등분할상환"},
+            {"product_id": "common", "doc_type": "glossary_hf", "title": "원리금"},
+        ],
+        ids=["common:hf-A:0", "common:hf-B:0"],
+    )
+    hits = keyword_hits(doc_store, "원리금균등상환이 뭐야?", None, 2)
+    assert [d.metadata["title"] for d in hits] == ["원리금균등분할상환"]
+    assert keyword_hits(doc_store, "금리가 뭐야?", None, 2) == []  # 짧은 낱말은 비슷한 제목 찾기를 하지 않는다

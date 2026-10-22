@@ -14,7 +14,9 @@
 
 import re
 
+import numpy as np
 from langchain_chroma import Chroma
+from langchain_chroma.vectorstores import maximal_marginal_relevance
 from langchain_core.documents import Document
 
 DOC_TYPE_LABELS = {
@@ -27,25 +29,41 @@ DOC_TYPE_LABELS = {
 }
 
 
-def _scored(store: Chroma, query: str, k: int, cfg: dict, where: dict | None, min_score: float) -> list[tuple]:
-    """(문서, 관련도) 목록. 관련도(코사인 유사도) min_score 미만, 그리고 1등보다 relative_margin 이상 낮은 것은 뺀다."""
+def _scored(store: Chroma, query_vec: list[float], k: int, cfg: dict, where: dict | None, min_score: float) -> list[tuple]:
+    """(문서, 관련도) 목록. 관련도(코사인 유사도) min_score 미만, 그리고 1등보다 relative_margin 이상 낮은 것은 뺀다.
+
+    질문 임베딩(query_vec)은 retrieve 에서 한 번만 만들어 두 컬렉션·MMR 이 같이 쓴다. (임베딩 API 호출 수 줄이기)
+    MMR 은 문턱을 통과한 후보 안에서만 다양성을 따져 k 개를 고른다. (문턱 밖 문서를 골랐다가 버려 근거가 줄지 않게)
+    """
     if k <= 0:
         return []
-    fetch_k = max(cfg.get("mmr_fetch_k", 20), k) if cfg.get("search_type") == "mmr" else k * 2
-    # 컬렉션은 cosine 거리(hnsw:space=cosine)라 관련도 = 1 - 거리
-    scored = [(d, 1 - dist) for d, dist in store.similarity_search_with_score(query, k=fetch_k, filter=where)]
-    if not scored:
-        return []
-    best = scored[0][1]
-    margin = cfg.get("relative_margin")
-    scored = [(d, sc) for d, sc in scored if sc >= min_score and (margin is None or sc >= best - margin)]
-    if cfg.get("search_type") == "mmr" and scored:
-        keep = {d.id: sc for d, sc in scored}
-        picked = store.max_marginal_relevance_search(
-            query, k=k, fetch_k=fetch_k, lambda_mult=cfg.get("mmr_lambda", 0.5), filter=where
+    mmr = cfg.get("search_type") == "mmr"
+    fetch_k = max(cfg.get("mmr_fetch_k", 20), k) if mmr else k * 2
+    got = store._collection.query(
+        query_embeddings=[query_vec],
+        n_results=fetch_k,
+        where=where,
+        include=["documents", "metadatas", "distances"] + (["embeddings"] if mmr else []),
+    )
+    rows = [
+        # 컬렉션은 cosine 거리(hnsw:space=cosine)라 관련도 = 1 - 거리
+        (Document(id=i, page_content=t, metadata=m or {}), 1 - dist, n)
+        for n, (i, t, m, dist) in enumerate(
+            zip(got["ids"][0], got["documents"][0], got["metadatas"][0], got["distances"][0], strict=True)
         )
-        return [(d, keep[d.id]) for d in picked if d.id in keep]
-    return scored[:k]
+    ]
+    if not rows:
+        return []
+    best = rows[0][1]
+    margin = cfg.get("relative_margin")
+    rows = [r for r in rows if r[1] >= min_score and (margin is None or r[1] >= best - margin)]
+    if mmr and rows:
+        vectors = [got["embeddings"][0][n] for _, _, n in rows]
+        picked = maximal_marginal_relevance(
+            np.array(query_vec, dtype=np.float32), vectors, lambda_mult=cfg.get("mmr_lambda", 0.5), k=k
+        )
+        return [(rows[i][0], rows[i][1]) for i in picked]
+    return [(d, sc) for d, sc, _ in rows[:k]]
 
 
 # 질문 끝에 붙는 조사·어미. 용어 정확 일치 검색 전에 떼어 낸다.
@@ -73,8 +91,36 @@ def question_terms(question: str) -> list[str]:
 SHORT_GLOSSARIES = ["glossary_hf", "glossary_epost", "glossary_epost_chatbot"]
 
 
+def _first_line_docs(store: Chroma, needle: str, where: dict | None) -> list[Document]:
+    """단문 사전에서 첫 줄(용어 줄)에 needle 이 있는 항목"""
+    short = {"doc_type": {"$in": SHORT_GLOSSARIES}}
+    # 본문에만 나오는 항목도 걸리므로 넉넉히 받아 첫 줄로 거른다
+    got = store.get(where={"$and": [short, where]} if where else short, where_document={"$contains": needle}, limit=100)
+    return [
+        Document(id=i, page_content=t, metadata=m)
+        for i, t, m in zip(got["ids"], got["documents"], got["metadatas"])
+        if needle in t.split("\n", 1)[0]
+    ]
+
+
+def _bigram_dice(a: str, b: str) -> float:
+    ga = {a[i : i + 2] for i in range(len(a) - 1)}
+    gb = {b[i : i + 2] for i in range(len(b) - 1)}
+    return 2 * len(ga & gb) / (len(ga) + len(gb)) if ga and gb else 0.0
+
+
+# 제목이 질문 용어와 비슷하다고 볼 2글자 단위 겹침 정도 (원리금균등상환 ~ 원리금균등분할상환 = 0.71)
+TITLE_SIMILARITY = 0.6
+
+
 def keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) -> list[Document]:
-    """용어사전에서 제목이 질문 용어와 같거나, 본문 첫 줄에 '(약어)'가 있는 항목"""
+    """용어사전에서 질문 용어와 맞는 항목.
+
+    1) 제목이 용어와 같은 항목
+    2) 없으면: 약어(LTV)는 첫 줄에 '(LTV)'가 있는 항목,
+       4글자 이상 한글 용어는 제목이 비슷한 항목(예: 원리금균등상환 -> 원리금균등분할상환). 앞 3글자로 후보를 찾고
+       2글자 단위 겹침이 TITLE_SIMILARITY 이상인 것만, 비슷한 순서로. 짧은 낱말(금리)은 너무 많이 걸려 2) 를 하지 않는다.
+    """
     hits: list[Document] = []
     for term in question_terms(question):
         conds = [{"title": term}, {"doc_type": {"$ne": "wiki"}}]
@@ -83,17 +129,14 @@ def keyword_hits(store: Chroma, question: str, where: dict | None, limit: int) -
         got = store.get(where={"$and": conds}, limit=limit)
         docs = [Document(id=i, page_content=t, metadata=m) for i, t, m in zip(got["ids"], got["documents"], got["metadatas"])]
         if not docs and re.fullmatch(r"[A-Z]{2,}", term):
-            short = {"doc_type": {"$in": SHORT_GLOSSARIES}}
-            # 본문에만 약어가 나오는 항목도 걸리므로 넉넉히 받아 첫 줄로 거른다
-            got = store.get(
-                where={"$and": [short, where]} if where else short, where_document={"$contains": f"({term})"}, limit=50
-            )
-            docs = [
-                Document(id=i, page_content=t, metadata=m)
-                for i, t, m in zip(got["ids"], got["documents"], got["metadatas"])
-                if f"({term})" in t.split("\n", 1)[0]
-            ][:limit]
-        hits.extend(docs)
+            docs = sorted(_first_line_docs(store, f"({term})", where), key=lambda d: len(d.metadata.get("title", "")))
+        elif not docs and len(term) >= 4:
+            scored = [
+                (_bigram_dice(term, d.metadata.get("title", "").replace(" ", "")), d)
+                for d in _first_line_docs(store, term[:3], where)
+            ]
+            docs = [d for sc, d in sorted(scored, key=lambda x: -x[0]) if sc >= TITLE_SIMILARITY]
+        hits.extend(docs[:limit])
         if len(hits) >= limit:
             break
     return hits[:limit]
@@ -128,6 +171,7 @@ def retrieve(
 ) -> list[dict]:
     """번호(n)가 붙은 근거 목록. 메타 근거가 앞, 외부 문서가 뒤."""
     found: list[dict] = []
+    query_vec = doc_store.embeddings.embed_query(question)
     if product_id:
         got = meta_store.get(ids=[product_id])
         if got["ids"]:
@@ -136,13 +180,13 @@ def retrieve(
         where = {"product_id": {"$in": ["common", product_id]}}
     else:
         # 상품을 고르지 않은 용어 질문에서 상관없는 상품이 끼지 않도록 메타는 더 높은 관련도를 요구한다.
-        for doc, sc in _scored(meta_store, question, cfg.get("meta_top_k", 3), cfg, None, cfg.get("meta_min_relevance", 0)):
+        for doc, sc in _scored(meta_store, query_vec, cfg.get("meta_top_k", 3), cfg, None, cfg.get("meta_min_relevance", 0)):
             found.append(make_evidence(doc, doc.id, "meta", sc, "유사도"))
         where = None
 
     for doc in keyword_hits(doc_store, question, where, cfg.get("keyword_top_k", 2)):
         found.append(make_evidence(doc, doc.id, "docs", None, "용어 일치"))
-    for doc, sc in _scored(doc_store, question, cfg["top_k"], cfg, where, cfg.get("min_relevance", 0)):
+    for doc, sc in _scored(doc_store, query_vec, cfg["top_k"], cfg, where, cfg.get("min_relevance", 0)):
         found.append(make_evidence(doc, doc.id, "docs", sc, "유사도"))
 
     seen_ids, seen_text, merged = set(), set(), []

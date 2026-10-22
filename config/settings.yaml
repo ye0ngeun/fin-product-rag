@@ -86,6 +86,8 @@ llm:
   chat_model: gpt-4.1-mini
   embedding_model: text-embedding-3-small
   temperature: 0
+  max_retries: 5          # GMS 일시 오류(502 등)·시간 초과 때 OpenAI 클라이언트가 간격을 늘려 다시 시도
+  timeout_sec: 60
 
 vectorstore:
   meta_collection: loan_meta
@@ -110,4 +112,4 @@ retrieval:
   # similarity | mmr (F2014)
   search_type: similarity
   mmr_fetch_k: 20
-  mmr_lambda: 0.5
+  mmr_lambda: 0.7       # 1에 가까울수록 관련도, 0에 가까울수록 다양성

@@ -20,6 +20,8 @@ import re
 from datetime import date
 from pathlib import Path
 
+import openai
+
 from src.config import NOTICES, ROOT_DIR, get_settings
 from src.eval.search_compare import load_questions
 from src.rag.graph import source_line
@@ -146,12 +148,21 @@ def main() -> None:
     meta_store = get_store(settings["vectorstore"]["meta_collection"], emb)
     items = [q for q in load_questions() if not args.only or q["id"] in args.only]
 
-    rows = []
+    rows, failed = [], []
     for item in items:
         print(f"[{item['id']}] {item['question']} ...", flush=True)
-        row = run_item(item, llm, app, meta_store)
+        try:
+            row = run_item(item, llm, app, meta_store)
+        except openai.APIError as e:  # 재시도 후에도 실패한 GMS 오류는 그 질문만 건너뛴다
+            failed.append(item["id"])
+            print(f"   모델 호출 실패({type(e).__name__}). 이 질문은 건너뜁니다.")
+            continue
         print(f"   RAG 없이: {row['baseline_judge']} / RAG: {row['rag_judge']} (출처 {len(row['sources'])}개)")
         rows.append(row)
+    if failed:
+        print(f"\n실패한 질문: {' '.join(failed)}. 보고서에는 성공한 질문만 들어갑니다. GMS 일시 오류일 수 있으니 잠시 뒤 다시 실행하세요.")
+    if not rows:
+        return
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(to_markdown(rows, settings["llm"]["chat_model"]), encoding="utf-8")

@@ -21,6 +21,9 @@ def get_embeddings() -> Embeddings:
         base_url=get_env("OPENAI_BASE_URL", required=False),
         # 토큰 배열 대신 원문 문자열을 보낸다. 프록시(GMS)에서 토큰 배열 입력이 막힐 수 있다.
         check_embedding_ctx_length=False,
+        # 일시 오류(502 등)는 OpenAI 클라이언트가 간격을 늘려 다시 시도한다
+        max_retries=settings["llm"].get("max_retries", 2),
+        request_timeout=settings["llm"].get("timeout_sec"),
     )
 
 
