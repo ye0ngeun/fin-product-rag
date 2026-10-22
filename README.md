@@ -16,6 +16,7 @@ src/
   vectorstore/          컬렉션 생성, 청킹, 임베딩 색인
   rag/                  LangGraph retrieve/generate, 프롬프트
   services/             화면이 쓰는 기능: 길잡이·비교 요약·조건 탐색(guide), 상환액·불빛 계산(loan_calc), 비교표, 실거래 사례
+  eval/                 검증 스크립트: 유사도/MMR 비교, RAG 전후 비교
   ui/                   화면 구성 요소 (사이드바, 대출 계획·한 달 살아보기, 찾기·비교, 길잡이)
 data/raw, data/processed  수집·가공 데이터 (git 제외)
 sources.md              데이터 계획, 출처와 이용 조건
@@ -117,6 +118,30 @@ python -m src.rag.ask "중도상환수수료는 어떻게 계산돼?" --product 
 python -m src.rag.ask "LTV가 뭐야?" --show-evidence
 python -m src.rag.ask "오늘 서울 날씨 어때?" --product mortgage:0010001:1054   # 근거 없음 확인
 ```
+
+## 심화: 검색 방식 비교와 RAG 전후 비교 (F2014, F2015)
+
+대표 질문은 `config/eval_questions.yaml` 에 있습니다(특정 상품 공시값 3개, 용어 2개, 문서로 알 수 없는 질문 1개).
+
+### MMR 검색 (F2014)
+
+`retrieval.search_type: mmr` 이면 후보를 `mmr_fetch_k` 개 가져와 `mmr_lambda`(1에 가까울수록 관련도, 0에 가까울수록 다양성)로 `top_k` 개를 고릅니다. 길잡이 화면의 "근거 검색 방식"에서 질문마다 바꿀 수도 있습니다.
+
+```bash
+python -m src.eval.search_compare "LTV가 뭐야?"
+python -m src.eval.search_compare --questions --out data/processed/eval/search_compare.md
+```
+
+같은 질문의 두 근거 목록과 근거 수, 서로 다른 문서 수, 같은 문서 중복(같은 위키 문서의 여러 청크), 출처 종류 수, 한쪽에만 나온 근거를 보여 줍니다.
+
+### RAG 전후 비교 (F2015)
+
+```bash
+python -m src.eval.rag_compare
+python -m src.eval.rag_compare --only q1 q4
+```
+
+같은 모델로 질문만 준 답과 RAG 답을 나란히 `data/processed/eval/rag_compare.md` 에 씁니다. 사실 정확성(공시값·핵심 낱말 포함), 근거 제시(인용 출처 수), 모름 인정("확인되지 않습니다")을 자동 점검하고, 표의 "사람 판단" 칸은 답을 읽고 직접 채웁니다. 결과에 금감원 공시값이 들어가므로 git 에서 빠진 폴더에 저장합니다. 제출물에는 이 파일을 복사해 넣습니다.
 
 ## 아파트 실거래가 수집 (《불빛 하나》 화면용)
 

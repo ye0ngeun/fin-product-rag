@@ -27,6 +27,7 @@ COMPARE_QUESTION = (
 # 비교표에 나오는 용어. 용어사전 근거로 같이 넣는다.
 COMPARE_TERMS = "고정금리 변동금리 중도상환수수료 분할상환 만기일시상환"
 
+SEARCH_TYPES = ("similarity", "mmr")
 STEP_LABELS = {"retrieve": "근거를 찾았어요. 답변 작성 중…", "generate": "답변을 다 썼어요."}
 
 
@@ -49,22 +50,29 @@ class Guide:
             llm = get_chat_model()
         self.llm = llm
         self._wiki = wiki
-        self.graph = build_graph(self._retrieve, llm)
+        self.graph = build_graph(self._retriever(self.cfg), llm)
+        # 길잡이에서 검색 방식을 바꿔 결과를 비교할 수 있게 방식별 그래프를 둔다 (F2014)
+        self.graphs = {
+            kind: build_graph(self._retriever({**self.cfg, "search_type": kind}), llm) for kind in SEARCH_TYPES
+        }
 
     # --- 공통 ---
-    def _retrieve(self, question, product_id):
-        return retrieve(question, self.meta_store, self.doc_store, self.cfg, product_id=product_id)
+    def _retriever(self, cfg: dict):
+        def retrieve_fn(question, product_id):
+            return retrieve(question, self.meta_store, self.doc_store, cfg, product_id=product_id)
+
+        return retrieve_fn
 
     def products(self) -> list[dict]:
         """loan_meta 의 모든 상품 메타데이터 (상품 고르기·비교표용)"""
         got = self.meta_store.get(include=["metadatas", "documents"])
         return [{**m, "text": t} for m, t in zip(got["metadatas"], got["documents"])]
 
-    def _run(self, state: dict, on_status: Callable[[str], None]) -> dict:
+    def _run(self, state: dict, on_status: Callable[[str], None], graph=None) -> dict:
         """그래프를 노드 단위로 돌리며 진행 상황을 알린다."""
         on_status("근거를 찾는 중…")
         result = dict(state)
-        for update in self.graph.stream(state, stream_mode="updates"):
+        for update in (graph or self.graph).stream(state, stream_mode="updates"):
             for node, values in update.items():
                 result.update(values or {})
                 on_status(STEP_LABELS.get(node, node))
@@ -105,11 +113,14 @@ class Guide:
         history: list[dict] | None = None,
         use_wiki: bool = True,
         on_status: Callable[[str], None] = _noop,
+        search_type: str | None = None,
     ) -> dict:
+        """search_type: similarity / mmr. 없으면 settings.yaml 의 retrieval.search_type"""
         wiki = {"titles": [], "new": [], "error": ""}
         if product_id and use_wiki:
             wiki = self.collect_wiki_for(product_id, question, on_status)
-        result = self._run({"question": question, "product_id": product_id, "history": history or []}, on_status)
+        state = {"question": question, "product_id": product_id, "history": history or []}
+        result = self._run(state, on_status, self.graphs.get(search_type))
         return {**result, "wiki": wiki}
 
     # --- 비교 요약 (F2010) ---

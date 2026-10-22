@@ -5,6 +5,7 @@
 프롬프트 3: 답변 생성 (F2007)
 프롬프트 4: 조건 해석 (F2011) — 자연어 조건을 검색 조건 JSON으로
 프롬프트 5: 조건 맞는 상품 고르기 (F2011)
+비교용: RAG 없이 답하기 (F2015) — 같은 모델에 근거 없이 질문만 준다
 """
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -104,5 +105,12 @@ PRODUCT_SELECTION_PROMPT = ChatPromptTemplate.from_messages(
             '출력은 JSON 배열 하나만 쓴다. 예: [{{"no": 2, "reason": "비대면 가입 가능"}}]. 맞는 상품이 없으면 [].',
         ),
         ("human", "[조건]\n{condition}\n\n[후보]\n{candidates}"),
+    ]
+)
+
+BASELINE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", "당신은 한국 개인 대출상품을 설명하는 금융 상담 도우미입니다. 한국어로 간결하게 답한다."),
+        ("human", "{question}"),
     ]
 )
