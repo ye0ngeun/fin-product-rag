@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import requests
 
 from src.data_prep.molit_collector import fetch_month, normalize, parse_response, recent_months
 
@@ -65,6 +66,16 @@ def test_fetch_month_paginates():
     items = fetch_month(session, "key", "11440", "202609", CFG)
     assert len(items) == 2
     assert session.pages == [1, 2]
+
+
+def test_fetch_error_hides_api_key():
+    class _Broken:
+        def get(self, url, params, timeout):
+            raise requests.ConnectionError(f"Max retries exceeded with url: /x?serviceKey={params['serviceKey']}&LAWD_CD=11680")
+
+    with pytest.raises(RuntimeError) as e:
+        fetch_month(_Broken(), "SECRET-KEY-123", "11680", "202604", CFG)
+    assert "SECRET-KEY-123" not in str(e.value) and "***" in str(e.value)
 
 
 def test_seoul_region_table_from_cp949_csv():
