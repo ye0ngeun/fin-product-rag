@@ -43,7 +43,9 @@ def fetch_page(session: requests.Session, url: str, params: dict, fss_cfg: dict)
         except (requests.RequestException, ValueError, KeyError, RuntimeError) as e:
             last_error = e
             time.sleep(fss_cfg["request_interval_sec"] * 2**attempt)
-    raise RuntimeError(f"요청 실패 (pageNo={params.get('pageNo')}): {last_error}")
+    # 오류 문구의 요청 URL 에 인증키가 들어가므로 가린다 (NF2003)
+    detail = str(last_error).replace(params["auth"], "***") if params.get("auth") else last_error
+    raise RuntimeError(f"요청 실패 (pageNo={params.get('pageNo')}): {detail}")
 
 
 def collect(product_type: str, api_key: str, fss_cfg: dict) -> dict:

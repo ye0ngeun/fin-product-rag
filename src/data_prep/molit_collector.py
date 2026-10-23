@@ -158,7 +158,9 @@ def fetch_month(session: requests.Session, api_key: str, lawd_cd: str, deal_ym: 
                 last_error = e
                 time.sleep(cfg["request_interval_sec"] * 2**attempt)
         else:
-            raise RuntimeError(f"요청 실패 ({lawd_cd}, {deal_ym}, pageNo={page}): {last_error}")
+            # 오류 문구의 요청 URL 에 인증키가 들어가므로 가린다 (NF2003)
+            detail = str(last_error).replace(api_key, "***")
+            raise RuntimeError(f"요청 실패 ({lawd_cd}, {deal_ym}, pageNo={page}): {detail}")
         items.extend(page_items)
         time.sleep(cfg["request_interval_sec"])
         if not page_items or len(items) >= total:
