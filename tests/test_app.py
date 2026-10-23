@@ -16,6 +16,12 @@ from src.vectorstore.index_meta import index_meta
 
 FIXTURES = Path(__file__).parent / "fixtures"
 APP = str(ROOT_DIR / "app.py")
+# 첫 AppTest 실행이 무거운 import(chromadb·langchain)까지 떠안으면 새 가상환경(맥 첫 실행 등)에서 시간 제한을 넘는다.
+# 화면이 쓰는 모듈을 여기서 미리 불러 두고, 제한도 넉넉히 둔다.
+import src.services.guide  # noqa: E402,F401
+import src.ui.chat, src.ui.explore, src.ui.plan, src.ui.sidebar  # noqa: E401,E402,F401
+
+TIMEOUT = 60
 
 
 @pytest.fixture
@@ -51,7 +57,7 @@ def _texts(at) -> str:
 
 def test_missing_key_and_index_show_guidance(env, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY")
-    at = AppTest.from_file(APP, default_timeout=30).run()
+    at = AppTest.from_file(APP, default_timeout=TIMEOUT).run()
     errors = "\n".join(e.value for e in at.error)
     assert "OPENAI_API_KEY" in errors and "python -m src.vectorstore.index_meta" in errors
     assert NOTICES["disclaimer"] in _texts(at)
@@ -60,7 +66,7 @@ def test_missing_key_and_index_show_guidance(env, monkeypatch):
 
 def test_every_page_renders_with_disclaimers(env):
     _index(env)
-    at = AppTest.from_file(APP, default_timeout=30).run()
+    at = AppTest.from_file(APP, default_timeout=TIMEOUT).run()
     assert not at.exception, at.exception
     for page in ["대출 계획", "상품 찾기·비교", "한 달 살아보기", "길잡이"]:
         at.session_state["page"] = page
@@ -72,7 +78,7 @@ def test_every_page_renders_with_disclaimers(env):
 
 def test_plan_shows_lights_and_month_uses_same_plan(env):
     _index(env)
-    at = AppTest.from_file(APP, default_timeout=30).run()
+    at = AppTest.from_file(APP, default_timeout=TIMEOUT).run()
     assert any("첫 달 상환액" in m.label for m in at.metric)
     assert "불빛" in _texts(at)
     at.session_state["page"] = "한 달 살아보기"
@@ -82,7 +88,7 @@ def test_plan_shows_lights_and_month_uses_same_plan(env):
 
 def test_chat_history_is_kept_per_product(env):
     _index(env)
-    at = AppTest.from_file(APP, default_timeout=30)
+    at = AppTest.from_file(APP, default_timeout=TIMEOUT)
     at.session_state["histories"] = {
         "mortgage:0010001:1054": [{"role": "user", "content": "우리아파트론 질문"}],
         "_general": [{"role": "user", "content": "일반 질문"}],
